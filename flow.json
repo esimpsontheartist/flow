@@ -1,0 +1,28 @@
+{
+	"emulators": {
+		"default": {
+			"port": 3569,
+			"serviceAccount": "emulator-account"
+		}
+	},
+	"contracts": {
+		"FLOW": "./contracts/standard/FLOW.cdc",
+		"FUSD": "./contracts/standard/FLOW.cdc",
+		"FungibleToken": "./contracts/standard/FungibleToken.cdc",
+		"NonFungibleToken": "./contract/standard/NonFungibleToken.cdc",
+		"FractionalVault": "./contract/FractionalVault.cdc",
+		"Fraction": "./contract/Fraction.cdc"
+	},
+	"networks": {
+		"emulator": "127.0.0.1:3569",
+		"mainnet": "access.mainnet.nodes.onflow.org:9000",
+		"testnet": "access.devnet.nodes.onflow.org:9000"
+	},
+	"accounts": {
+		"emulator-account": {
+			"address": "f8d6e0586b0a20c7",
+			"key": "b5d63df3f64660a07a715c109712dc42f47f53533c317995012605357fffb04e"
+		}
+	},
+	"deployments": {}
+}
