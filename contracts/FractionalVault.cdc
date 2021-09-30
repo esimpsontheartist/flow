@@ -181,38 +181,26 @@ pub contract FractionalVault {
     // @notice An envet emitted when a vault resource is initialized
     pub event Initialized(id: UInt256)
 
-    //pub resource FractionalNFT: @NonFungibleToken.INFT
+    pub struct ReserveInfo {
+        pub var voting: UFix64
+        pub var reserve: UFix64
 
-    //Create a collection resource to hold any NFTs for the user
-
-    //Struct to handle different NFT addresses and corresponding IDs
-    pub struct NFT {
-        pub var id: UInt64
-        pub var address: Address //Could be a resource or something else
-
-        init(id: UInt64, address: Address){
-            self.id = id
-            self.address = address
+        init(_ voting: UFix64, _ reserve: UFix64){
+            self.voting = voting
+            self.reserve = reserve
         }
     }
 
     pub resource NFTvault {
 
         pub let id: UInt256
-        /// -----------------------------------
-        /// ------ FRACTION INFORMATION -------
-        /// -----------------------------------
-
-        //This would refer to the NFTs Address and ID that is being "kept" by the vault
-        priv let vaultCollection: @NonFungibleToken.Collection
 
         //The vault that holds fungible tokens for an auction
         priv let bidVault: @FungibleToken.Vault
-
-        //The collection for the fractional NFTs
-        priv let fractionalCollection: @NonFungibleToken.Collection
-
-        //might need something to receive the NFTs
+        //The collection for the fractions
+        priv var fractions: @Fraction.Collection
+        //Collection of the NFTs the user will fractionalize
+        priv var underlying: Capability<&NonFungibleToken.Collection> 
 
         /// -----------------------------------
         /// ------ Auction information --------
@@ -228,45 +216,33 @@ pub contract FractionalVault {
         /// ------ Vault information ----------
         /// -----------------------------------
 
-        //SUBJETC TO CHANGE
-        pub var fractions: NFT 
-        //SUBJETC TO CHANGE 
-        pub var underlying: NFT 
-
         //Array of prices with more than 1% voting for them
         access(account) var prices: [UFix64]
         //All prices and the number voting for them
-        access(account) let priceToCount: {UFix64: UInt256}
+        access(account) let priceToCount: {UFix64: UFix64}
         //The price of each user
         access(account) let userPrices: {Address: UFix64} 
 
         init(
             id: UInt256,
             fractions: NFT,
-            underlying: NFT
+            underlying: Capability<&NonFungibleToken.Collection>
         ) {
             self.id = id
-            //How to represent 2 days in Cadence?
-            self.fractions = fractions
+            self.fractions <- Fraction.createEmptyCollection()
             self.underlying = underlying
+            //How to represent 2 days in Cadence?
             self.auctionLength = 2.0
             self.auctionState = State.inactive
             self.prices = []
             self.userPrices = {}
             self.priceToCount = {}
 
-            //nil variables
+            //optional nil variables
             self.auctionEnd = nil
             self.reserveTotal = nil
             self.livePrice = nil
             self.winning = nil
-
-            //creating an empty collection to hold the NFTs
-            //Not the right implementation, will need something to store any arbitrary NFT
-            //Then maybe multiple ones
-            self.vaultCollection <- Fraction.createEmptyCollection()
-
-            self.fractionalCollection <- Fraction.createEmptyCollection()
             
             //bid vault
             self.bidVault <- FUSD.createEmptyVault()
@@ -274,29 +250,38 @@ pub contract FractionalVault {
             emit Initialized(id: id)
         }
 
-        /** Need to add this later
-            function isLivePrice(uint256 _price) external returns(bool) {
-                return prices.contains(_price);
-            }
-         */
-
-
         
+        pub fun isLivePrice(price: UFix64): Bool {
+            return self.prices.contains(price);
+        }
 
-        priv fun addToPrice(amount: UInt256, price: UInt256) {
-            self.priceToCount[price] = self.priceToCount[price] + amount
-            if(self.priceToCount[price] > 99 && !self.prices.contains(price)) {
-               prices.add(price)
+        priv fun sendFUSD(to: Address, value: UFix64) {
+            //borrow a capability for the vault of the 'to' address
+            let toVault = getAccount(to).getCapability<&FUSD.Vault{FungibleToken.Balance}>(/public/fusdBalance).borrow() ?? panic("Could not borrow a reference to the account receiver")
+            //withdraw 'value' from the bidVault
+            let withdrawalVault = self.bidVault.withdraw(amount: value)
+            //deposit the amount
+            toVault.deposit(amount: <-withdrawalVault)
+        }
+
+        // add to a price count
+        // add price to reserve calc if 1% are voting for it
+        priv fun addToPrice(_ amount: UFix64, _ price: UFix64) {
+            self.priceToCount[price] = self.priceToCount[price]! + amount
+            if self.priceToCount[price]! > 99.0 && !self.prices.contains(price) {
+               self.prices.append(price)
             }
         }
 
-        priv fun removeFromPrice(amount: UInt256, oldPrice: UInt256) {
-            self.priceToCount[oldPrice] = self.priceToCount[oldPrice] - amount
-            if(self.priceToCount[oldPrice] < 100 && !self.prices.contains(oldPrice)) {
+        // remove a price count
+        // remove price from reserve calc if less than 1% are voting for it
+        priv fun removeFromPrice(_ amount: UFix64, _ oldPrice: UFix64) {
+            self.priceToCount[oldPrice] = self.priceToCount[oldPrice]! - amount
+            if self.priceToCount[oldPrice]! < 100.0 && !self.prices.contains(oldPrice) {
                var index = 0
                for price in self.prices {
                    if price == oldPrice {
-                       prices.remove(index)
+                       self.prices.remove(at: index)
                        break
                    }
                    index = index + 1
@@ -305,52 +290,206 @@ pub contract FractionalVault {
             }
         }
 
-        pub fun updateUserPrice(address: Address, new: UInt256) {
-            pub let accountReceiver: PublicAccount = getAccount(address).getCapability<&FUSD.Vault{FungibleToken.Balance}>(/public/fusdBalance)
-                .borrow()
-                ?? panic("Could not borrow a reference to the account receiver")
-            pub var balance: UInt256 = accountReceiver.balance
+        pub fun updateUserPrice(address: Address, new: UFix64) {
+            let accountReceiver = getAccount(address).getCapability<&FUSD.Vault{FungibleToken.Balance}>(/public/fusdBalance).borrow() ?? panic("Could not borrow a reference to the account receiver")
+            var balance: UFix64 = accountReceiver.balance
+            self.addToPrice(balance, new)
+            self.removeFromPrice(balance, self.userPrices[address]!)
 
-            addToPrice(balance, new)
-            removeFromPrice(balance, userPrices[address])
-
-            userPrices[address] = new
+            self.userPrices[address] = new
             
             emit PriceUpdate(user: address, price: new)
         }
 
-        /**
-            //1. Create a collection for the fractions
-            //2. Create a collection that is moved to the curator
-            //
-            //3. Mint the NFTs to the curator
-            //
-            //4. Emit "Mint" event
-            //
-            //5. Add vault to vaults mapping
-            //
-            //6. Increment vault count
+        /** THIS PROBABLY BELONGS IN THE FRACTION NFT CONTRACT
+            function onTransfer(address _from, address _to, uint256 _amount) external {
+                require(msg.sender == fractions.token, "not allowed");
+                
+                // we are burning
+                if (_to == address(0)) {
+                    _removeFromPrice(_amount, userPrices[_from]);
+                }
+                else if (_from == address(0)) {
+                    _addToPrice(_amount, userPrices[_to]);
+                } else {
+                    _removeFromPrice(_amount, userPrices[_from]);
+                    _addToPrice(_amount, userPrices[_to]);
+                }
+            }
         */
 
-        //Vault functions
+        priv fun slice(_ array: [UFix64], _ begin: Integer, _ last: Integer): [UFix64] {
+            var arr: [UFix64] = []
+            var i = begin
+            while i < last {
+                arr.append(array[i])
+                i = i + 1
+            }
+            return arr
+        }
 
+        priv fun sort(_ array: [UFix64]): [UFix64] {
+            //create copy because arguments are constant
+            var arr = array
+            var length = arr.length
+            //base case
+            if length < 2 {
+                return arr
+            }
 
+            //position of the partition
+            var currentPosition = 0
+
+            var i = 1
+            while i < length {
+                if arr[i] <= arr[0] {
+                    currentPosition = currentPosition + 1
+                    arr[i] <-> arr[currentPosition]
+                }
+            }
+
+            //swap
+            arr[0] <-> arr[currentPosition]
+
+            var left: [UFix64] = self.sort(self.slice(arr, 0, currentPosition))
+            var right: [UFix64] = self.sort(self.slice(arr, currentPosition + 1, length))
+
+            //mergin the arrays
+            arr = left
+            arr.append(arr[currentPosition])
+            arr.appendAll(right)
+            return arr
+        }
+        
+        pub fun reservePrice(): ReserveInfo {
+
+            var tempPrices = self.prices
+            tempPrices = self.sort(tempPrices)
+            var voting = 0.0
+            var x = 0
+            while x < tempPrices.length {   
+                if tempPrices[x] != 0.0 {
+                    voting = voting + self.priceToCount[tempPrices[x]]!
+                }
+                x = x + 1
+            }
+
+            var reserve = 0.0 
+            var count = 0.0
+            var y = 0
+            while y < tempPrices.length {
+                if tempPrices[y] != 0.0 {
+                    count = count + self.priceToCount[tempPrices[y]]!
+                }
+                if count * 2.0 >= voting {
+                    reserve = tempPrices[y]
+                    break
+                }
+            }
+            return ReserveInfo(voting, reserve)
+        }
+
+        /// @notice kick off an auction. Must send reservePrice in FUSD
+        pub fun start(_ fusdVault: @FUSD.Vault) {
+            pre {
+                self.auctionState == State.inactive : "start:no auction starts"
+                fusdVault.balance >= self.reservePrice().reserve : "start:too low bid"
+                self.reservePrice().voting * 2.0 >= 0.0 : "start:not enough voters" //Swap for the equivalent to IFERC1155(fractions.token).totalSupply(fractions.id)
+            }
+
+            self.auctionEnd = getCurrentBlock().timestamp + self.auctionLength
+            self.auctionState = State.live
+
+            self.livePrice = fusdVault.balance
+            self.winning = fusdVault.owner?.address
+
+            emit Start(buyer: fusdVault.owner?.address!, price: fusdVault.balance)
+
+            //Deposit the bid into the vault
+            self.bidVault.deposit(from: <-fusdVault)
+        }
+
+        pub fun bid(_ fusdVault: @FUSD.Vault) {
+            pre {
+                self.auctionState == State.inactive : "bid:no auction starts"
+                fusdVault.balance * 100.0 >= self.livePrice! * 105.0 : "bid:too low bid"
+                getCurrentBlock().timestamp < self.auctionEnd! : "bid:auction end"
+            }
+
+            //Need to represent 15 minutes
+            if self.auctionEnd! - getCurrentBlock().timestamp <= 15.0 {
+                self.auctionEnd = self.auctionEnd! + 15.0
+            }
+            
+            //refund the last bidder
+            self.sendFUSD(to: self.winning, amount: self.livePrice);
+            
+            self.livePrice = fusdVault.balance
+            self.winning = fusdVault.owner?.address
+
+            emit Bid(buyer: fusdVault.owner?.address!, price: fusdVault.balance)
+
+            destroy fusdVault
+        }
+
+        pub fun end() {
+            pre {
+                self.auctionState == State.live : "end:vault has already closed"
+                getCurrentBlock().timestamp >= self.auctionEnd! : "end:auction live"
+            }
+
+            // transfer NFT to winner
+            //IERC721(underlying.token).transferFrom(address(this), winning, underlying.id);
+
+            self.auctionState = State.ended
+
+            emit Won(buyer: self.winning!, price: self.livePrice!)
+        }
+
+        //Replace with the custom Fractional NFT code
+        pub fun redeem(_ fractions: @FungibleToken.Vault) {
+            pre {
+                self.auctionState == State.inactive : "redeem:no redeeming"
+            }
+
+            //take tokens
+
+            //transfer NFT to the owner of the fractions
+
+            self.auctionState = State.redeemed
+
+            emit Redeem(redeemer: fractions.owner?.address!)
+
+            destroy fractions
+        }
+
+        pub fun cash(_ fractions: @FungibleToken.Vault) {
+            pre {
+                self.auctionState == State.ended : "cash:vault not closed yet"
+                fractions.balance > 0.0 : "cash:no tokens to cash out"
+            }
+
+            //var share = (fractions.balance * contractBalance) / totalSupplyOfFraction
+
+            //take fractions
+
+            //sendFUSD
+
+            emit Cash(owner: fractions.owner?.address!, shares: 0.0) //replace 0.0 with 'share'
+            destroy fractions
+        }
+        
         //Resource destruction
         //Add more logic behind conditions before a vault and other resources are destructed
         destroy() {
             log("destroy auction")
 
-
-            destroy self.vaultCollection
-            destroy self.fractionalCollection
             destroy self.bidVault
+            destroy  self.fractions
         }
 
     }
 
-
-    //init() -> constructor
-    //Only called once when the contract is created, and never again
     init() {
         self.settings = Settings()
     }
