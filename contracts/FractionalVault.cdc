@@ -6,151 +6,12 @@
  import FlowToken from "./standard/FLOW.cdc"
  import FUSD from "./standard/FUSD.cdc"
  import NonFungibleToken from "./standard/NonFungibleToken.cdc"
+ import EnumerableSet from "./lib/EnumerableSet.cdc"
  import Fraction from "./Fraction.cdc"
+ import FractionalFactory from "./FractionalFactory.cdc"
 
-//Might want to separete the settings from Vault and moved them to a 'Factory' Contract
+
 pub contract FractionalVault {
-    
-    ////////////////////////////////////////
-    ///////////Factory//////////////////////
-    ////////////////////////////////////////
-    
-    /// @notice the number of NFT vaults
-    //pub var vaultCount: UInt256
-
-    /// @notice the mapping of vault number to vault id
-    //pub var vaults: {UInt256: UInt256}
-
-
-    /// @notice the mapping of vault number to vault contract
-    //pub let vaults: {UInt256: Address} (Might change Address for some other type/resource)
-
-    //pub event Mint(token: Address, id: UInt256, price: UInt256, vault: Address, vaultId: UInt256);
-
-    //Vault settings Events
-    pub event UpdateMaxAuctionLength(old: UFix64, new: UFix64)
-    pub event UpdateMinAuctionLength(old: UFix64, new: UFix64)
-    pub event UpdateGovernanceFee(old: UFix64, new: UFix64)
-    pub event UpdateMinBidIncrease(old: UFix64, new: UFix64)
-    pub event UpdateMinVotePercentage(old: UFix64, new: UFix64)
-    pub event UpdateMaxReserveFactor(old: UFix64, new: UFix64)
-    pub event UpdateMinReserveFactor(old: UFix64, new: UFix64)
-    pub event UpdateFeeReceiver(old: Address, new: Address)
-    //Vault settings
-    pub struct Settings {
-        pub var maxAuctionLength: UFix64
-        pub var minAuctionLength: UFix64
-        pub var governanceFee: UFix64
-        pub let maxGovFee: UFix64 //10% is the max
-        pub var minBidIncrease: UFix64
-        pub let maxMinBidIncrease: UFix64 //10% bid increase is the max
-        pub let minMinBidIncrease: UFix64 //1% is the bid increase min
-        pub var minVotePercentage: UFix64 //Percentage of tokens required to be voting for an auction to start
-        pub var maxReserveFactor: UFix64 // the max % increase over the initial
-        pub var minReserveFactor: UFix64 // the max % decreaseFactor from the initial
-        pub var feeReceiver: Address // the address that receives auction fees
-
-            //need to set the right initial values
-            init() {
-            self.maxAuctionLength =  0.0
-            self.minAuctionLength = 0.0
-            self.governanceFee = 0.0
-            self.maxGovFee = 0.0
-            self.minBidIncrease = 0.0
-            self.maxMinBidIncrease = 0.0
-            self.minMinBidIncrease = 0.0
-            self.minVotePercentage = 0.0
-            self.maxReserveFactor = 0.0
-            self.minReserveFactor = 0.0
-            self.feeReceiver = 0x0
-        }
-
-        //access(account) -> only the account and contracts inside of it read this function
-        access(account) fun setMaxAuctionLength(length: UFix64) {
-            //require -> pre (or 'precondition') in Cadence
-            pre {
-                //length <= 8 weeks in UFix64?
-                length > self.minAuctionLength: "max auction length too low"
-            }
-
-            emit UpdateMaxAuctionLength(old: self.maxAuctionLength, new: length)
-            self.maxAuctionLength = length
-        }
-
-        access(account) fun setMinAuctionLength(length: UFix64) {
-            //require -> pre (or 'precondition') in Cadence
-            pre {
-                //length => 1 day in UFix64?
-                length < self.maxAuctionLength: "max auction length too high"
-            }
-
-            emit UpdateMinAuctionLength(old: self.minAuctionLength, new: length)
-            self.minAuctionLength = length
-        }
-
-        access(account) fun setGovernanceFee(fee: UFix64) {
-            pre { 
-                fee <= self.maxGovFee: "fee too high"
-            }
-
-            emit UpdateGovernanceFee(old: self.governanceFee, new: fee)
-            self.governanceFee = fee
-        }
-
-        access(account) fun setMinBidIncrease(min: UFix64) {
-            pre {
-                min <= self.maxMinBidIncrease: "min bid increase too high"
-                min >= self.minMinBidIncrease: "min bid increase too low"
-            }
-
-            emit UpdateMinBidIncrease(old: self.minBidIncrease, new: min)
-            self.minBidIncrease = min
-        }
-
-        access(account) fun setMinVotePercentage(min: UFix64) {
-            pre { 
-                // Need to find the right way to represent percentage in Flow
-                min <= 100.0: "min vote percentage too high"
-            }
-
-            emit UpdateMinVotePercentage(old: self.minVotePercentage, new: min)
-            self.minVotePercentage = min
-        }
-
-        access(account) fun setMaxReserveFactor(factor: UFix64) {
-            pre {
-                factor > self.minReserveFactor: "max reserve factor too low"
-            }
-
-            emit UpdateMaxReserveFactor(old: self.maxReserveFactor, new: factor)
-            self.maxReserveFactor = factor
-        }
-
-        access(account) fun setMinReserveFactor(factor: UFix64) {
-            pre {
-                factor < self.maxReserveFactor: "min reserve factor too high"
-            }
-
-            emit UpdateMinReserveFactor(old: self.minReserveFactor, new: factor)
-            self.minReserveFactor = factor
-        }
-
-        access(account) fun setFeeReceiver(receiver: Address) {
-            //Research: what is the 0 address in Cadence?
-            pre {
-                receiver != 0x0: "fees cannot go to 0 address"
-            }
-            emit UpdateFeeReceiver(old: self.feeReceiver, new: receiver)
-            self.feeReceiver = receiver
-        }
-
-    }
-
-    access(account) let settings: Settings
-
-    ////////////////////////////////////////
-    /////////////Vault//////////////////////
-    ////////////////////////////////////////
 
     //enum for auction state
     pub enum State: UInt8 {
@@ -159,7 +20,6 @@ pub contract FractionalVault {
         pub case ended
         pub case redeemed
     }
-
 
     /// -----------------------------------
     /// ------ Vault Events ---------------
@@ -175,36 +35,36 @@ pub contract FractionalVault {
     pub event Won(buyer: Address, price: UFix64);
     /// @notice An event emitted when someone redeems all tokens for the NFT
     pub event Redeem(redeemer: Address);
-    /// @notice An event emitted when someone cashes in ERC20 tokens for ETH from an ERC721 token sale
-    pub event Cash(owner: Address, shares: UFix64);
+    /// @notice An event emitted when someone cashes in Fractions for FUSD from an NFT sale
+    pub event Cash(owner: Address, shares: UInt256);
 
     // @notice An envet emitted when a vault resource is initialized
     pub event Initialized(id: UInt256)
 
     pub struct ReserveInfo {
-        pub var voting: UFix64
+        pub var voting: UInt256 //what is voting meant to represent?
         pub var reserve: UFix64
 
-        init(_ voting: UFix64, _ reserve: UFix64){
+        init(_ voting: UInt256, _ reserve: UFix64){
             self.voting = voting
             self.reserve = reserve
         }
     }
 
-    pub resource NFTvault {
+    pub resource Vault {
 
         pub let id: UInt256
 
+        access(account) let settings: FractionalFactory.Settings
+
         //The vault that holds fungible tokens for an auction
-        priv let bidVault: @FungibleToken.Vault
+        priv let bidVault: @FUSD.Vault
         //The collection for the fractions
-        priv var fractions: @Fraction.Collection
+        priv var fractions: @NonFungibleToken.Collection
         //Collection of the NFTs the user will fractionalize
         priv var underlying: Capability<&NonFungibleToken.Collection> 
 
-        /// -----------------------------------
-        /// ------ Auction information --------
-        /// -----------------------------------
+        // Auction information// 
         pub var auctionEnd: UFix64?
         pub var auctionLength: UFix64
         pub var reserveTotal: UFix64?
@@ -212,29 +72,27 @@ pub contract FractionalVault {
         pub var winning: Address?
         pub var auctionState: State?
 
-        /// -----------------------------------
-        /// ------ Vault information ----------
-        /// -----------------------------------
+        //Vault information//
 
         //Array of prices with more than 1% voting for them
-        access(account) var prices: [UFix64]
+        access(account) var prices: EnumerableSet.UFix64Set
         //All prices and the number voting for them
-        access(account) let priceToCount: {UFix64: UFix64}
+        access(account) let priceToCount: {UFix64: UInt256}
         //The price of each user
         access(account) let userPrices: {Address: UFix64} 
 
         init(
             id: UInt256,
-            fractions: NFT,
-            underlying: Capability<&NonFungibleToken.Collection>
+            underlying: Capability<&NonFungibleToken.Collection>,
+            settings: FractionalFactory.Settings
         ) {
             self.id = id
+            self.settings = settings
             self.fractions <- Fraction.createEmptyCollection()
             self.underlying = underlying
-            //How to represent 2 days in Cadence?
-            self.auctionLength = 2.0
+            self.auctionLength = 172800.0 //2 days in seconds 
             self.auctionState = State.inactive
-            self.prices = []
+            self.prices = EnumerableSet.UFix64Set()
             self.userPrices = {}
             self.priceToCount = {}
 
@@ -257,36 +115,30 @@ pub contract FractionalVault {
 
         priv fun sendFUSD(to: Address, value: UFix64) {
             //borrow a capability for the vault of the 'to' address
-            let toVault = getAccount(to).getCapability<&FUSD.Vault{FungibleToken.Balance}>(/public/fusdBalance).borrow() ?? panic("Could not borrow a reference to the account receiver")
+            let toVault = getAccount(to).getCapability<&FUSD.Vault{FungibleToken.Receiver}>(/public/fusdBalance).borrow() ?? panic("Could not borrow a reference to the account receiver")
             //withdraw 'value' from the bidVault
-            let withdrawalVault = self.bidVault.withdraw(amount: value)
+            let withdrawalVault <- self.bidVault.withdraw(amount: value)
             //deposit the amount
-            toVault.deposit(amount: <-withdrawalVault)
+            toVault.deposit(from: <-withdrawalVault)
         }
 
         // add to a price count
         // add price to reserve calc if 1% are voting for it
         priv fun addToPrice(_ amount: UFix64, _ price: UFix64) {
-            self.priceToCount[price] = self.priceToCount[price]! + amount
-            if self.priceToCount[price]! > 99.0 && !self.prices.contains(price) {
-               self.prices.append(price)
+            self.priceToCount[price] = self.priceToCount[price]! + UInt256(amount)
+            //TODO: add IFERC1155(fractions.token).totalSupply(fractions.id)
+            if self.priceToCount[price]! > 99 && !self.prices.contains(price) {
+               self.prices.add(price)
             }
         }
 
         // remove a price count
         // remove price from reserve calc if less than 1% are voting for it
         priv fun removeFromPrice(_ amount: UFix64, _ oldPrice: UFix64) {
-            self.priceToCount[oldPrice] = self.priceToCount[oldPrice]! - amount
-            if self.priceToCount[oldPrice]! < 100.0 && !self.prices.contains(oldPrice) {
-               var index = 0
-               for price in self.prices {
-                   if price == oldPrice {
-                       self.prices.remove(at: index)
-                       break
-                   }
-                   index = index + 1
-               }
-               
+            self.priceToCount[oldPrice] = self.priceToCount[oldPrice]! - UInt256(amount)
+            //if (priceToCount[_price] * 100 >= IFERC1155(fractions.token).totalSupply(fractions.id) && !prices.contains(_price)) {
+            if self.priceToCount[oldPrice]! < 100 && !self.prices.contains(oldPrice) {
+                self.prices.remove(oldPrice)
             }
         }
 
@@ -363,10 +215,10 @@ pub contract FractionalVault {
         
         pub fun reservePrice(): ReserveInfo {
 
-            var tempPrices = self.prices
+            var tempPrices = self.prices.values()
             tempPrices = self.sort(tempPrices)
-            var voting = 0.0
-            var x = 0
+            var voting: UInt256 = 0
+            var x: Int = 0
             while x < tempPrices.length {   
                 if tempPrices[x] != 0.0 {
                     voting = voting + self.priceToCount[tempPrices[x]]!
@@ -375,13 +227,13 @@ pub contract FractionalVault {
             }
 
             var reserve = 0.0 
-            var count = 0.0
+            var count: UInt256 = 0
             var y = 0
             while y < tempPrices.length {
                 if tempPrices[y] != 0.0 {
                     count = count + self.priceToCount[tempPrices[y]]!
                 }
-                if count * 2.0 >= voting {
+                if count * 2 >= voting {
                     reserve = tempPrices[y]
                     break
                 }
@@ -394,7 +246,7 @@ pub contract FractionalVault {
             pre {
                 self.auctionState == State.inactive : "start:no auction starts"
                 fusdVault.balance >= self.reservePrice().reserve : "start:too low bid"
-                self.reservePrice().voting * 2.0 >= 0.0 : "start:not enough voters" //Swap for the equivalent to IFERC1155(fractions.token).totalSupply(fractions.id)
+                self.reservePrice().voting * 2 >= 0 : "start:not enough voters" //Swap for the equivalent to IFERC1155(fractions.token).totalSupply(fractions.id)
             }
 
             self.auctionEnd = getCurrentBlock().timestamp + self.auctionLength
@@ -422,7 +274,7 @@ pub contract FractionalVault {
             }
             
             //refund the last bidder
-            self.sendFUSD(to: self.winning, amount: self.livePrice);
+            self.sendFUSD(to: self.winning!, value: self.livePrice!);
             
             self.livePrice = fusdVault.balance
             self.winning = fusdVault.owner?.address
@@ -475,7 +327,7 @@ pub contract FractionalVault {
 
             //sendFUSD
 
-            emit Cash(owner: fractions.owner?.address!, shares: 0.0) //replace 0.0 with 'share'
+            emit Cash(owner: fractions.owner?.address!, shares: 0) //replace 0.0 with 'share'
             destroy fractions
         }
         
@@ -490,8 +342,12 @@ pub contract FractionalVault {
 
     }
 
-    init() {
-        self.settings = Settings()
+    //function to create a new Vault
+    //change to acces(acount), pub now for to avoid getting anoid by the linter
+    pub fun createVault(id: UInt256, underlying: Capability<&NonFungibleToken.Collection>, settings: FractionalFactory.Settings): @FractionalVault.Vault {
+        return <- create Vault(id: id, underlying: underlying, settings: settings)
     }
+
+    init() {}
 }
  

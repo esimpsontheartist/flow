@@ -6,12 +6,14 @@
 		}
 	},
 	"contracts": {
+		"EnumerableSet": "./contracts/lib/EnumerableSet.cdc",
 		"FLOW": "./contracts/standard/FLOW.cdc",
 		"FUSD": "./contracts/standard/FLOW.cdc",
 		"FungibleToken": "./contracts/standard/FungibleToken.cdc",
-		"NonFungibleToken": "./contract/standard/NonFungibleToken.cdc",
-		"FractionalVault": "./contract/FractionalVault.cdc",
-		"Fraction": "./contract/Fraction.cdc"
+		"NonFungibleToken": "./contracts/standard/NonFungibleToken.cdc",
+		"FractionalVault": "./contracts/FractionalVault.cdc",
+		"FractionalFactory": "./contracts/FractionalFactory.cdc",
+		"Fraction": "./contracts/Fraction.cdc"
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
