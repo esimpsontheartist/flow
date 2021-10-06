@@ -12,7 +12,6 @@
 		"FungibleToken": "./contracts/standard/FungibleToken.cdc",
 		"NonFungibleToken": "./contracts/standard/NonFungibleToken.cdc",
 		"FractionalVault": "./contracts/FractionalVault.cdc",
-		"FractionalFactory": "./contracts/FractionalFactory.cdc",
 		"Fraction": "./contracts/Fraction.cdc"
 	},
 	"networks": {

@@ -127,12 +127,25 @@ pub contract EnumerableSet {
         return set._values
     }
 
+   
+
     //UFix64 set
     //Useful for keeping a set of prices in FLOW or FUSD
     pub struct UFix64Set  {
         pub var _inner: Set
 
         init(){ self._inner = Set()}
+
+         //Arithmetic
+        priv fun _pow(_ base: UFix64, _ exponent: UFix64): UFix64 {
+            var num = base
+            var i = 0.0
+            while i < exponent {
+                num = num * num
+                i = i + 1.0
+            }
+            return num
+        }
 
         /**
         * @dev Add a value to a set. O(1).
@@ -141,7 +154,8 @@ pub contract EnumerableSet {
         * that is if it was not already present, in which case it returns the same set and false
         */
         pub fun add(_ value: UFix64): Bool {
-            var setReturn: SetReturn = EnumerableSet._add(self._inner, UInt256(value))
+            var uint256Val = value * (self._pow(10.0, 8.0)) //Max factor for UFix64 = 100000000
+            var setReturn: SetReturn = EnumerableSet._add(self._inner, UInt256(uint256Val))
             self._inner = setReturn.set
             return setReturn.present
         }
@@ -153,7 +167,8 @@ pub contract EnumerableSet {
         * present.
         */
         pub fun remove(_ value: UFix64): Bool {
-            var setReturn: SetReturn = EnumerableSet._remove(self._inner, UInt256(value))
+            var uint256Val = value * (self._pow(10.0, 8.0)) //Max factor for UFix64 = 100000000
+            var setReturn: SetReturn = EnumerableSet._remove(self._inner, UInt256(uint256Val))
             self._inner = setReturn.set
             return setReturn.present
         }
@@ -162,7 +177,8 @@ pub contract EnumerableSet {
         * @dev Returns true if the value is in the set. O(1).
         */
         pub fun contains(_ value: UFix64): Bool {
-            return EnumerableSet._contains(self._inner, UInt256(value));
+            var uint256Val = value * (self._pow(10.0, 8.0)) //Max factor for UFix64 = 100000000
+            return EnumerableSet._contains(self._inner, UInt256(uint256Val));
         }
 
         /**
@@ -183,7 +199,8 @@ pub contract EnumerableSet {
         * - `index` must be strictly less than {length}.
         */
         pub fun at(_ index: UInt256): UFix64 {
-            return UFix64(EnumerableSet._at(self._inner, index))
+            var ufix64Val = UFix64(EnumerableSet._at(self._inner, index)) / self._pow(10.0, 8.0)
+            return ufix64Val
         }
 
         /**
@@ -193,7 +210,8 @@ pub contract EnumerableSet {
             var innerValues = EnumerableSet._values(self._inner)
             var ufixValues: [UFix64] = []
             for val in innerValues {
-                ufixValues.append(UFix64(val))
+                var ufix64Val = UFix64(val) / self._pow(10.0, 8.0)
+                ufixValues.append(ufix64Val)
             }
             return ufixValues
         }
