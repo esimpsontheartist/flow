@@ -24,38 +24,33 @@ pub contract FractionalVault {
     pub let VaultStoragePath: StoragePath
 	pub let VaultPublicPath: PublicPath
 
-     //Vault settings
+     //Vault settings (NEEDS A CLEANUP)
     pub struct Settings {
         pub var maxAuctionLength: UFix64
         pub var minAuctionLength: UFix64
-        pub var governanceFee: UFix64
-        pub let maxGovFee: UFix64 //10% is the max
         pub var minBidIncrease: UFix64
         pub let maxMinBidIncrease: UFix64 //10% bid increase is the max
         pub let minMinBidIncrease: UFix64 //1% is the bid increase min
         pub var minVotePercentage: UFix64 //Percentage of tokens required to be voting for an auction to start
         pub var maxReserveFactor: UFix64 // the max % increase over the initial
         pub var minReserveFactor: UFix64 // the max % decreaseFactor from the initial
-        pub var feeReceiver: Address // the address that receives auction fees
+        pub var feeReceiver: Address? // the address that receives auction fees
 
             //need to set the right initial values
             init() {
             self.maxAuctionLength =  0.0
             self.minAuctionLength = 0.0
-            self.governanceFee = 0.0
-            self.maxGovFee = 0.0
             self.minBidIncrease = 0.0
             self.maxMinBidIncrease = 0.0
             self.minMinBidIncrease = 0.0
             self.minVotePercentage = 0.0
             self.maxReserveFactor = 0.0
             self.minReserveFactor = 0.0
-            self.feeReceiver = 0x0
+            self.feeReceiver = nil
         }
 
-        //access(account) -> only the account and contracts inside of it read this function
         access(account) fun setMaxAuctionLength(length: UFix64) {
-            //require -> pre (or 'precondition') in Cadence
+
             pre {
                 //length <= 8 weeks in UFix64?
                 length > self.minAuctionLength: "max auction length too low"
@@ -74,15 +69,6 @@ pub contract FractionalVault {
 
             emit UpdateMinAuctionLength(old: self.minAuctionLength, new: length)
             self.minAuctionLength = length
-        }
-
-        access(account) fun setGovernanceFee(fee: UFix64) {
-            pre { 
-                fee <= self.maxGovFee: "fee too high"
-            }
-
-            emit UpdateGovernanceFee(old: self.governanceFee, new: fee)
-            self.governanceFee = fee
         }
 
         access(account) fun setMinBidIncrease(min: UFix64) {
@@ -128,7 +114,7 @@ pub contract FractionalVault {
             pre {
                 receiver != 0x0: "fees cannot go to 0 address"
             }
-            emit UpdateFeeReceiver(old: self.feeReceiver, new: receiver)
+            emit UpdateFeeReceiver(old: self.feeReceiver!, new: receiver)
             self.feeReceiver = receiver
         }
 
@@ -140,7 +126,6 @@ pub contract FractionalVault {
     //Vault settings Events
     pub event UpdateMaxAuctionLength(old: UFix64, new: UFix64)
     pub event UpdateMinAuctionLength(old: UFix64, new: UFix64)
-    pub event UpdateGovernanceFee(old: UFix64, new: UFix64)
     pub event UpdateMinBidIncrease(old: UFix64, new: UFix64)
     pub event UpdateMinVotePercentage(old: UFix64, new: UFix64)
     pub event UpdateMaxReserveFactor(old: UFix64, new: UFix64)
@@ -160,7 +145,9 @@ pub contract FractionalVault {
     /// -----------------------------------
     //@reserach: is there a concept in Cadence/Flow similar to 'indexed'
     /// @notice An event emitted when a user updates their price
-    pub event PriceUpdate(user: Address, price: UFix64);
+    pub event PriceUpdate(fractionsOwner: Address, price: UFix64);
+    /// @notice An event emitted when a user updates their price
+    pub event PricesRemoved(fractionsOwner: Address);
     /// @notice An event emitted when an auction starts
     pub event Start(buyer: Address, price: UFix64);
     /// @notice An event emitted when a bid is made
@@ -170,10 +157,9 @@ pub contract FractionalVault {
     /// @notice An event emitted when someone redeems all tokens for the NFT
     pub event Redeem(redeemer: Address);
     /// @notice An event emitted when someone cashes in Fractions for FLOW from an NFT sale
-    pub event Cash(owner: Address, shares: UInt256);
+    pub event Cash(owner: Address, flow: UFix64);
     //Mint event
     pub event Mint(underlyingOwner: Address, vaultId: UInt256);
-
 
     // @notice An envet emitted when a vault resource is initialized
     pub event Initialized(id: UInt256)
@@ -217,22 +203,20 @@ pub contract FractionalVault {
         pub let prices: EnumerableSet.UFix64Set
         //All prices and the number voting for them
         pub let priceToCount: {UFix64: UInt256}
-        //The price of each user
-        pub let userPrices: {Address: UFix64} 
+        //The price each fraction is bidding
+        pub let fractionPrices: {UInt64: UFix64} 
 
         init(
             id: UInt256,
-            settings: Settings
         ) {
             self.id = id
             self.settings = FractionalVault.settings
             self.auctionLength = 172800.0 //2 days in seconds 
             self.auctionState = State.inactive
             self.prices = EnumerableSet.UFix64Set()
-            self.userPrices = {}
+            self.fractionPrices = {}
             self.priceToCount = {}
             
-
             // Resources
             self.bidVault <- FlowToken.createEmptyVault()
             self.fractions <- Fraction.createEmptyCollection()
@@ -244,61 +228,63 @@ pub contract FractionalVault {
             self.livePrice = nil
             self.winning = nil
             
-            
-            
             emit Initialized(id: id)
         }
-
         
         pub fun isLivePrice(price: UFix64): Bool {
             return self.prices.contains(price);
         }
 
-        priv fun sendFlow(to: Address, value: UFix64) {
+        access(contract) fun sendFlow(to: Address, value: UFix64) {
             //borrow a capability for the vault of the 'to' address
             let toVault = getAccount(to).getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenBalance).borrow() ?? panic("Could not borrow a reference to the account receiver")
             //withdraw 'value' from the bidVault
-            let withdrawalVault <- self.bidVault.withdraw(amount: value)
-            //deposit the amount
-            toVault.deposit(from: <-withdrawalVault)
+            toVault.deposit(from: <- self.bidVault.withdraw(amount: value))
         }
         
         // add to a price count
         // add price to reserve calc if 1% are voting for it
-        //change to access(account), pub now to avoid linter errrors
+        //TODO: CHANGE TO access(account)
         pub fun addToPrice(_ amount: UInt256, _ price: UFix64) {
             self.priceToCount[price] = self.priceToCount[price]! + amount
-            //TODO: add IFERC1155(fractions.token).totalSupply(fractions.id)
-            if self.priceToCount[price]! > 99 && !self.prices.contains(price) {
+            //TODO: Check the math adds up
+            if self.priceToCount[price]! * 100 >= Fraction.fractionSupply[self.id]! && !self.prices.contains(price) {
                self.prices.add(price)
             }
         }
 
         // remove a price count
         // remove price from reserve calc if less than 1% are voting for it
-        //change to access(account), pub now to avoid linter errrors
+        //TODO: CHANGE TO access(account)
         pub fun removeFromPrice(_ amount: UInt256, _ oldPrice: UFix64) {
             self.priceToCount[oldPrice] = self.priceToCount[oldPrice]! - amount
-            //if (priceToCount[_price] * 100 >= IFERC1155(fractions.token).totalSupply(fractions.id) && !prices.contains(_price)) {
-            if self.priceToCount[oldPrice]! < 100 && !self.prices.contains(oldPrice) {
+            //TODO: Check the math adds up
+            if self.priceToCount[oldPrice]! * 100 < Fraction.fractionSupply[self.id]! && !self.prices.contains(oldPrice) {
                 self.prices.remove(oldPrice)
             }
         }
 
-        pub fun updateUserPrice(address: Address, new: UFix64) {
-            //Get fraction balance
-            let accountReceiver = getAccount(address).getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
-            //Amount of fractions the user holds
-            var amount = UInt256(accountReceiver.getIDs().length)
-            self.addToPrice(amount, new)
-            self.removeFromPrice(amount, self.userPrices[address]!)
-
-            self.userPrices[address] = new
+        //check that the argument is the right type of capbility (restriced vs non-restriced)
+        //have to make sure that only the owner of the capabilty is updating the bids
+        pub fun updateFractionBid(collection: Capability<&Fraction.Collection>, new: UFix64) {
             
-            emit PriceUpdate(user: address, price: new)
+            let fractions = collection.borrow() ?? panic("Could not borrow a reference to the account collection")
+
+            let fractionsOwner = fractions.owner?.address!
+
+            //Number of fractions to be updated
+            var keys = fractions.getIDs()
+            for key in keys {
+                let uuid = fractions.borrowNFT(id: key).uuid
+                self.addToPrice(1, new)
+                self.removeFromPrice(1, self.fractionPrices[uuid]!)
+                self.fractionPrices[uuid] = new
+            }
+            
+            emit PriceUpdate(fractionsOwner: fractionsOwner, price: new)
         }
 
-        priv fun slice(_ array: [UFix64], _ begin: Integer, _ last: Integer): [UFix64] {
+        access(contract) fun slice(_ array: [UFix64], _ begin: Integer, _ last: Integer): [UFix64] {
             var arr: [UFix64] = []
             var i = begin
             while i < last {
@@ -308,7 +294,7 @@ pub contract FractionalVault {
             return arr
         }
 
-        priv fun sort(_ array: [UFix64]): [UFix64] {
+        access(contract) fun sort(_ array: [UFix64]): [UFix64] {
             //create copy because arguments are constant
             var arr = array
             var length = arr.length
@@ -374,7 +360,7 @@ pub contract FractionalVault {
             pre {
                 self.auctionState == State.inactive : "start:no auction starts"
                 flowVault.balance >= self.reservePrice().reserve : "start:too low bid"
-                self.reservePrice().voting * 2 >= 0 : "start:not enough voters" //Swap for the equivalent to IFERC1155(fractions.token).totalSupply(fractions.id)
+                self.reservePrice().voting * 2 >= Fraction.fractionSupply[self.id]! : "start:not enough voters" //Swap for the equivalent to IFERC1155(fractions.token).totalSupply(fractions.id)
             }
 
             self.auctionEnd = getCurrentBlock().timestamp + self.auctionLength
@@ -383,10 +369,10 @@ pub contract FractionalVault {
             self.livePrice = flowVault.balance
             self.winning = flowVault.owner?.address
 
-            emit Start(buyer: flowVault.owner?.address!, price: flowVault.balance)
-
             //Deposit the bid into the vault
             self.bidVault.deposit(from: <-flowVault)
+
+            emit Start(buyer: self.winning!, price: self.livePrice!) 
         }
 
         pub fun bid(_ flowVault: @FlowToken.Vault) {
@@ -396,9 +382,9 @@ pub contract FractionalVault {
                 getCurrentBlock().timestamp < self.auctionEnd! : "bid:auction end"
             }
 
-            //Need to represent 15 minutes
-            if self.auctionEnd! - getCurrentBlock().timestamp <= 15.0 {
-                self.auctionEnd = self.auctionEnd! + 15.0
+            //900 is 15 minutes in seconds (for timestamp calculations)
+            if self.auctionEnd! - getCurrentBlock().timestamp <= 900.0 {
+                self.auctionEnd = self.auctionEnd! + 900.0
             }
             
             //refund the last bidder
@@ -417,46 +403,67 @@ pub contract FractionalVault {
                 self.auctionState == State.live : "end:vault has already closed"
                 getCurrentBlock().timestamp >= self.auctionEnd! : "end:auction live"
             }
+            
+            //get capabilit of the winners collection
+            let collection = getAccount(self.winning!).getCapability(NFTCollection.NFTCollectionPublicPath).borrow<&{NFTCollection.NFTCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
 
             // transfer NFT to winner
-            //IERC721(underlying.token).transferFrom(address(this), winning, underlying.id);
-
+            let keys = self.underlying.getIDs()
+            for key in keys {
+                collection.deposit(token: <- self.underlying.withdraw(withdrawID: key))
+            }
+            //change auction state
             self.auctionState = State.ended
+
+            if self.settings.feeReceiver != nil {
+                self.sendFlow(to: self.settings.feeReceiver!, value: (self.livePrice! / 40.0))
+            }
 
             emit Won(buyer: self.winning!, price: self.livePrice!)
         }
 
         //Replace with the custom Fractional NFT code
-        pub fun redeem(_ fractions: @FungibleToken.Vault) {
+        pub fun redeem(_ fractions: @Fraction.Collection) {
             pre {
                 self.auctionState == State.inactive : "redeem:no redeeming"
             }
 
-            //take tokens
+            let fractionsOwner = fractions.owner?.address!
+
+            //burn fractions
+            Fraction.burnFractions(fractions: <- fractions)
+
+            //get capabilit of the winners collection
+            let collection = getAccount(fractionsOwner).getCapability(NFTCollection.NFTCollectionPublicPath).borrow<&{NFTCollection.NFTCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
 
             //transfer NFT to the owner of the fractions
+            let keys = self.underlying.getIDs()
+            for key in keys {
+                collection.deposit(token: <- self.underlying.withdraw(withdrawID: key))
+            }
 
             self.auctionState = State.redeemed
 
-            emit Redeem(redeemer: fractions.owner?.address!)
-
-            destroy fractions
+            emit Redeem(redeemer: fractionsOwner)
         }
 
-        pub fun cash(_ fractions: @FungibleToken.Vault) {
+        pub fun cash(_ fractions: @Fraction.Collection) {
             pre {
                 self.auctionState == State.ended : "cash:vault not closed yet"
-                fractions.balance > 0.0 : "cash:no tokens to cash out"
+                fractions.balance() > 0 : "cash:no tokens to cash out"
             }
 
-            //var share = (fractions.balance * contractBalance) / totalSupplyOfFraction
+            let fractionsOwner = fractions.owner?.address!
+            //calculate share of the total fraction supply for the vault (Need to check the math)
+            var share = (UFix64(fractions.balance()) * self.bidVault.balance) / UFix64(Fraction.fractionSupply[self.id]!)
 
-            //take fractions
+            //burn the fractions
+            Fraction.burnFractions(fractions: <- fractions)
 
-            //sendFUSD
+            //sendFlow
+            self.sendFlow(to: fractionsOwner, value: share)
 
-            emit Cash(owner: fractions.owner?.address!, shares: 0) //replace 0.0 with 'share'
-            destroy fractions
+            emit Cash(owner: fractionsOwner, flow: share)
         }
         
         //Resource destruction
@@ -465,7 +472,7 @@ pub contract FractionalVault {
             log("destroy auction")
             destroy self.underlying
             destroy self.bidVault
-            destroy  self.fractions
+            destroy self.fractions
         }
 
     }
@@ -532,7 +539,7 @@ pub contract FractionalVault {
 
         var count = Fraction.count + 1
         //Initialize a vault
-        let vault <- create Vault(id: Fraction.count, settings: self.settings)
+        let vault <- create Vault(id: Fraction.count)
 
         let collectionOwner = collection.owner!
 

@@ -24,7 +24,54 @@ pub contract NFTCollection {
     //
     pub event Deposit(id: UInt64, to: Address?)
 
-    //Check NFTStoreFront.cdc in order to add struct for data keeping
+    pub resource interface WrappedNFT {
+       pub fun getAddress(): Address
+       pub fun getCollectionPath(): PublicPath
+       pub fun borrowNFT(): &NonFungibleToken.NFT
+    }
+
+    // An NFT wrapped with useful information (by @briandilley)
+    pub resource NFTWrapper : WrappedNFT {
+        access(self) var nft: @NonFungibleToken.NFT?
+        access(self) let address: Address
+        access(self) let collectionPath: PublicPath
+
+        init(
+            nft: @NonFungibleToken.NFT,
+            address: Address,
+            collectionPath: PublicPath
+        ) {
+            self.nft <- nft
+            self.address = address
+            self.collectionPath = collectionPath
+        }
+
+        pub fun getAddress(): Address {
+            return self.address
+        }
+
+        pub fun getCollectionPath(): PublicPath {
+            return self.collectionPath
+        }
+
+        pub fun borrowNFT(): &NonFungibleToken.NFT {
+            pre {
+                self.nft != nil: "Wrapped NFT is nil"
+            }
+            let optionalNft <- self.nft <- nil
+            let nft <- optionalNft!!
+            let ret = &nft as &NonFungibleToken.NFT
+            self.nft <-! nft
+            return ret!!
+        }
+
+        destroy() {
+            pre {
+                self.nft == nil: "Wrapped NFT is not nil"
+            }
+            destroy self.nft
+        }
+    }
 
     //interface that can also borrowArt as the correct type
 	pub resource interface NFTCollectionPublic {
