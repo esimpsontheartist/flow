@@ -2,7 +2,7 @@ import FungibleToken from "./standard/FungibleToken.cdc"
 import FlowToken from "./standard/FLOW.cdc"
 import NonFungibleToken from "./standard/NonFungibleToken.cdc"
 import EnumerableSet from "./lib/EnumerableSet.cdc"
-import NFTCollection from "./lib/NFTCollection.cdc"
+import WrappedCollection from "./lib/WrappedCollection.cdc"
 import Fraction from "./Fraction.cdc"
 
  /**
@@ -187,7 +187,7 @@ pub contract FractionalVault {
         access(account) var fractions: @NonFungibleToken.Collection
         //Collection of the NFTs the user will fractionalize (UInt64 is meant to be the NFT's uuid)
         //change access control later
-        access(account) var underlying: @NFTCollection.Collection
+        access(account) var underlying: @WrappedCollection.Collection
 
         // Auction information// 
         access(contract) var auctionEnd: UFix64?
@@ -220,7 +220,7 @@ pub contract FractionalVault {
             // Resources
             self.bidVault <- FlowToken.createEmptyVault()
             self.fractions <- Fraction.createEmptyCollection()
-            self.underlying <- NFTCollection.createEmptyCollection()
+            self.underlying <- WrappedCollection.createEmptyCollection()
 
             //optional nil variables
             self.auctionEnd = nil
@@ -405,7 +405,7 @@ pub contract FractionalVault {
             }
             
             //get capabilit of the winners collection
-            let collection = getAccount(self.winning!).getCapability(NFTCollection.NFTCollectionPublicPath).borrow<&{NFTCollection.NFTCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
+            let collection = getAccount(self.winning!).getCapability(WrappedCollection.WrappedCollectionPublicPath).borrow<&{WrappedCollection.WrappedCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
 
             // transfer NFT to winner
             let keys = self.underlying.getIDs()
@@ -434,7 +434,7 @@ pub contract FractionalVault {
             Fraction.burnFractions(fractions: <- fractions)
 
             //get capabilit of the winners collection
-            let collection = getAccount(fractionsOwner).getCapability(NFTCollection.NFTCollectionPublicPath).borrow<&{NFTCollection.NFTCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
+            let collection = getAccount(fractionsOwner).getCapability(WrappedCollection.WrappedCollectionPublicPath).borrow<&{WrappedCollection.WrappedCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
 
             //transfer NFT to the owner of the fractions
             let keys = self.underlying.getIDs()
@@ -535,7 +535,7 @@ pub contract FractionalVault {
     /// @param collection the collection for the underlying set of NFTS
     /// @return the ID of the vault
     /// Might want to consider changing the access control
-    pub fun mint(collection: @NFTCollection.Collection): @FractionalVault.Vault {
+    pub fun mint(collection: @WrappedCollection.Collection): @FractionalVault.Vault {
 
         var count = Fraction.count + 1
         //Initialize a vault

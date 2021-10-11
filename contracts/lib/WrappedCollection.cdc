@@ -4,10 +4,10 @@ import NonFungibleToken from "../standard/NonFungibleToken.cdc"
 //
 // A general purpose generic collection contract for Flow NFTs
 //
-pub contract NFTCollection {
+pub contract WrappedCollection {
 
-    pub let NFTCollectionStoragePath: StoragePath
-	pub let NFTCollectionPublicPath: PublicPath
+    pub let WrappedCollectionStoragePath: StoragePath
+	pub let WrappedCollectionPublicPath: PublicPath
     //Event emmited when contract has been deployed
     pub event CollectionIntialized()
 
@@ -26,32 +26,31 @@ pub contract NFTCollection {
 
     pub resource interface WrappedNFT {
        pub fun getAddress(): Address
-       pub fun getCollectionPath(): PublicPath
+       pub fun nestedType(): Type
        pub fun borrowNFT(): &NonFungibleToken.NFT
     }
 
     // An NFT wrapped with useful information (by @briandilley)
-    pub resource NFTWrapper : WrappedNFT {
-        access(self) var nft: @NonFungibleToken.NFT?
+    pub resource WNFT : WrappedNFT {
+        access(contract) var nft: @NonFungibleToken.NFT?
         access(self) let address: Address
-        access(self) let collectionPath: PublicPath
+        access(self) let nftType: Type
 
         init(
             nft: @NonFungibleToken.NFT,
-            address: Address,
-            collectionPath: PublicPath
+            address: Address
         ) {
             self.nft <- nft
             self.address = address
-            self.collectionPath = collectionPath
+            self.nftType = self.nft.getType()
         }
 
         pub fun getAddress(): Address {
             return self.address
         }
 
-        pub fun getCollectionPath(): PublicPath {
-            return self.collectionPath
+        pub fun nestedType(): Type {
+            return self.nftType
         }
 
         pub fun borrowNFT(): &NonFungibleToken.NFT {
@@ -65,6 +64,11 @@ pub contract NFTCollection {
             return ret!!
         }
 
+        pub fun unwrap(): @NonFungibleToken.NFT {
+            let nft <- self.nft <- nil
+            return <- nft!
+        }
+
         destroy() {
             pre {
                 self.nft == nil: "Wrapped NFT is not nil"
@@ -74,38 +78,44 @@ pub contract NFTCollection {
     }
 
     //interface that can also borrowArt as the correct type
-	pub resource interface NFTCollectionPublic {
+	pub resource interface WrappedCollectionPublic {
 		pub fun deposit(token: @NonFungibleToken.NFT)
 		pub fun getIDs(): [UInt64]
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
 	}
 
-    pub resource Collection: NFTCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: WrappedCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an `UInt64` ID field
-        pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
+        pub var ownedNFTs: @{UInt64: WNFT}
 
         init () {
             self.ownedNFTs <- {}
         }
 
-        // withdraw removes an NFT from the collection and moves it to the caller
+        // withdraw removes an WNFT from the collection, unwraps it, and moves it to the caller
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
-            let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
+            //remove the WNFT from the ownedNFTs dictionary
+            let wnft <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
-            emit Withdraw(id: token.uuid, from: self.owner?.address)
+            let nft <- wnft.unwrap()
 
-            return <-token
+            emit Withdraw(id: nft.uuid, from: self.owner?.address)
+            destroy wnft
+            return <- nft
         }
 
         // deposit takes a NFT and adds it to the collections dictionary
         // and adds the ID to the id array
         pub fun deposit(token: @NonFungibleToken.NFT) {
          
+            //need to create the WNFT
             let id: UInt64 = token.uuid
+            let address = token.owner?.address!
+            let wrappedToken <- create WNFT(nft: <- token, address: address)
 
             // add the new token to the dictionary which removes the old one
-            let oldToken <- self.ownedNFTs[id] <- token
+            let oldToken <- self.ownedNFTs[id] <- wrappedToken
 
             emit Deposit(id: id, to: self.owner?.address)
 
@@ -120,7 +130,8 @@ pub contract NFTCollection {
         // borrowNFT gets a reference to an NFT in the collection
         // so that the caller can read its metadata and call its methods
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            let borrowed = &self.ownedNFTs[id] as &WNFT
+            return borrowed.borrowNFT()
         }
 
         destroy() {
@@ -129,17 +140,17 @@ pub contract NFTCollection {
     }
 
     // public function that anyone can call to create a new empty collection
-    pub fun createEmptyCollection(): @NFTCollection.Collection {
+    pub fun createEmptyCollection(): @WrappedCollection.Collection {
         return <- create Collection()
     }
 
 
     init(){
-        self.NFTCollectionPublicPath = /public/fractionalCollection
-		self.NFTCollectionStoragePath = /storage/fractionalCollection
+        self.WrappedCollectionPublicPath = /public/fractionalCollection
+		self.WrappedCollectionStoragePath = /storage/fractionalCollection
 
-        self.account.save<@NFTCollection.Collection>(<- NFTCollection.createEmptyCollection(), to: NFTCollection.NFTCollectionStoragePath)
-		self.account.link<&{NFTCollection.NFTCollectionPublic}>(NFTCollection.NFTCollectionPublicPath, target: NFTCollection.NFTCollectionStoragePath)
+        self.account.save<@WrappedCollection.Collection>(<- WrappedCollection.createEmptyCollection(), to: WrappedCollection.WrappedCollectionStoragePath)
+		self.account.link<&{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath, target: WrappedCollection.WrappedCollectionStoragePath)
 
         emit CollectionIntialized()
     }
