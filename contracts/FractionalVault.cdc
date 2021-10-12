@@ -5,9 +5,9 @@ import EnumerableSet from "./lib/EnumerableSet.cdc"
 import WrappedCollection from "./lib/WrappedCollection.cdc"
 import Fraction from "./Fraction.cdc"
 
- /**
-  Fractional NFT Vault contract
- */
+/////////////////////////////////////
+// Fractional NFT Vault contract ///
+////////////////////////////////////
 
 pub contract FractionalVault {
 
@@ -526,7 +526,7 @@ pub contract FractionalVault {
 		}
     }
 
-    //function for anyone to call to create the collection where they can keep their
+    //function for anyone to call to create the collection where they can keep their vault
     pub fun createEmptyCollection(): @FractionalVault.VaultCollection {
         return <- create VaultCollection()
     }

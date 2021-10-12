@@ -7,8 +7,8 @@
 	},
 	"contracts": {
 		"EnumerableSet": "./contracts/lib/EnumerableSet.cdc",
+		"WrappedCollection": "./contracts/lib/WrappedCollection.cdc",
 		"FLOW": "./contracts/standard/FLOW.cdc",
-		"FUSD": "./contracts/standard/FLOW.cdc",
 		"FungibleToken": "./contracts/standard/FungibleToken.cdc",
 		"NonFungibleToken": "./contracts/standard/NonFungibleToken.cdc",
 		"FractionalVault": "./contracts/FractionalVault.cdc",
