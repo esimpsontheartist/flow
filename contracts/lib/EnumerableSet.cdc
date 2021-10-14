@@ -218,6 +218,81 @@ pub contract EnumerableSet {
 
     }
 
+    //UFix64 set
+    //Useful for keeping a set of prices in FLOW or FUSD
+    pub struct UInt64Set  {
+        pub var _inner: Set
+
+        init(){ self._inner = Set()}
+
+        /**
+        * @dev Add a value to a set. O(1).
+        *
+        * Returns the set with the added element and true if the value was added to the set,
+        * that is if it was not already present, in which case it returns the same set and false
+        */
+        pub fun add(_ value: UInt64): Bool {
+            var setReturn: SetReturn = EnumerableSet._add(self._inner, UInt256(value))
+            self._inner = setReturn.set
+            return setReturn.present
+        }
+
+        /**
+        * @dev Removes a value from a set. O(1).
+        *
+        * Returns true if the value was removed from the set, that is if it was
+        * present.
+        */
+        pub fun remove(_ value: UInt64): Bool {
+            var setReturn: SetReturn = EnumerableSet._remove(self._inner, UInt256(value))
+            self._inner = setReturn.set
+            return setReturn.present
+        }
+
+        /**
+        * @dev Returns true if the value is in the set. O(1).
+        */
+        pub fun contains(_ value: UFix64): Bool {
+            return EnumerableSet._contains(self._inner, UInt256(value));
+        }
+
+        /**
+        * @dev Returns the number of values in the set. O(1).
+        */
+        pub fun length(): UInt256 {
+            return EnumerableSet._length(self._inner)
+        }
+
+        /**
+        * @dev Returns the value stored at position `index` in the set. O(1).
+        *
+        * Note that there are no guarantees on the ordering of values inside the
+        * array, and it may change when more values are added or removed.
+        *
+        * Requirements:
+        *
+        * - `index` must be strictly less than {length}.
+        */
+        pub fun at(_ index: UInt256): UInt64 {
+            var uint64Val = UInt64(EnumerableSet._at(self._inner, index))
+            return uint64Val
+        }
+
+        /**
+        * @dev Return the entire set in an array O(n)
+        */
+        pub fun values(): [UInt64] {
+            var innerValues = EnumerableSet._values(self._inner)
+            var uint64Values: [UInt64] = []
+            for val in innerValues {
+                var uint64Val = UInt64(val) 
+                uint64Values.append(uint64Val)
+            }
+            return uint64Values
+        }
+
+    }
+
     
 
 }

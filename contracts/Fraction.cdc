@@ -1,4 +1,4 @@
-
+import EnumerableSet from "./lib/EnumerableSet.cdc"
 import NonFungibleToken from "./standard/NonFungibleToken.cdc"
 import FractionalVault from "./FractionalVault.cdc"
 
@@ -6,6 +6,9 @@ pub contract Fraction: NonFungibleToken {
 	
 	pub let CollectionStoragePath: StoragePath
 	pub let CollectionPublicPath: PublicPath
+
+	/// @notice the address where the vaults get minted to (address that has it's keys revoked)
+	pub let vaultAddress: Address
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
 
@@ -34,8 +37,12 @@ pub contract Fraction: NonFungibleToken {
     //
     pub event Deposit(id: UInt64, to: Address?)
 
+	pub resource interface Public {
+		pub let id: UInt64
+		pub let vaultId: UInt256
+	}
 	//The resource that represents the
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, Public {
 
 		//Add this later
 		//string private baseURI;
@@ -69,9 +76,7 @@ pub contract Fraction: NonFungibleToken {
 
 		destroy() {
 			//remove from price because we are burning the NFT
-        	var vaultCollection = Fraction.account.getCapability(FractionalVault.VaultPublicPath).borrow<&{FractionalVault.VaultCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
-			var vault = vaultCollection.borrowVault(id: Fraction.idToVault[self.id]!)
-			vault!.removeFromPrice(1, vault!.fractionPrices[self.uuid]!)
+			FractionalVault.removeFromPrice(self.vaultId, 1, FractionalVault.fractionPrices[self.vaultId]![self.uuid]!)
 		}
 
     }
@@ -81,6 +86,7 @@ pub contract Fraction: NonFungibleToken {
 		pub fun deposit(token: @NonFungibleToken.NFT)
 		pub fun getIDs(): [UInt64]
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
+		pub fun borrowFraction(id: UInt64): &{Fraction.Public}?
 	}
 
     pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
@@ -88,19 +94,19 @@ pub contract Fraction: NonFungibleToken {
 		// dictionary of NFT conforming tokens
 		// NFT is a resource type with an `UInt64` ID field
 		pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
+		// A dictionary to map fractions to their respective vault
+		pub var vaultToFractions: {UInt256: EnumerableSet.UInt64Set}
 
 		init () {
 			self.ownedNFTs <- {}
+			self.vaultToFractions = {}
 		}
 
         // withdraw removes an NFT from the collection and moves it to the caller
 		pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
 			let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
-
-			//change to a specific account where the VaultCollection will be stored
-        	var vaultCollection = Fraction.account.getCapability(FractionalVault.VaultPublicPath).borrow<&{FractionalVault.VaultCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
-			var vault = vaultCollection.borrowVault(id: Fraction.idToVault[token.id]!)
-			vault!.removeFromPrice(1, vault!.fractionPrices[self.uuid]!)
+			let vaultId = Fraction.idToVault[token.id]!
+			self.vaultToFractions[vaultId]!.remove(token.id)
 			emit Withdraw(id: token.id, from: self.owner?.address)
 			
 			return <-token
@@ -112,14 +118,10 @@ pub contract Fraction: NonFungibleToken {
 			let token <- token as! @Fraction.NFT
 
 			let id: UInt64 = token.id
-
+			let vaultId: UInt256 = token.vaultId
+			self.vaultToFractions[vaultId]!.add(id)
 			// add the new token to the dictionary which removes the old one
 			let oldToken <- self.ownedNFTs[id] <- token
-
-			//change to a specific account where the VaultCollection will be stored
-        	var vaultCollection = Fraction.account.getCapability(FractionalVault.VaultPublicPath).borrow<&{FractionalVault.VaultCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
-			var vault = vaultCollection.borrowVault(id: Fraction.idToVault[id]!)
-			vault!.addToPrice(1, vault!.fractionPrices[self.uuid]!)
 
 			emit Deposit(id: id, to: self.owner?.address)
 
@@ -138,6 +140,17 @@ pub contract Fraction: NonFungibleToken {
 		// so that the caller can read its metadata and call its methods
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
 			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+		}
+
+		// Returns a borrowed reference to a Fraction
+        // so that the caller can read data and call methods from it
+		pub fun borrowFraction(id: UInt64): &{Fraction.Public}? {
+			if self.ownedNFTs[id] != nil {
+				let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+				return ref as! &Fraction.NFT
+			} else {
+				return nil
+			}
 		}
 
 		//returns the number of fractions in a collection
@@ -188,6 +201,7 @@ pub contract Fraction: NonFungibleToken {
 	}
 
     init() {
+		self.vaultAddress = FractionalVault.vaultAddress
 		self.count = 0
         self.totalSupply = 0
 		self.fractionSupply = {}
