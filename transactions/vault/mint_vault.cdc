@@ -4,7 +4,6 @@ import ExampleNFT from "../../contracts/lib/ExampleNFT.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 //Transaction to mint a new vault
-
 transaction(nftId: UInt64) {
 
     // Reference to the vault account
@@ -21,11 +20,16 @@ transaction(nftId: UInt64) {
 
     execute {
         //withdraw the underlying
-        let underlying <- self.collection.withdraw(withdrawID: nftId)
+        let underlying <- self.collection.withdraw(withdrawID: nftId) as! @ExampleNFT.NFT
+        let type = underlying.getType()
+        let path = underlying.collectionPath
+        let address = underlying.owner?.address!
+        //wrap the underlying
+        let wrapped <- WrappedCollection.wrap(nft: <- underlying, address: address, collectionPath: path, nftType: type)
 
         //Create the WrappedCollection to be deposited into the vault
         let collection <- WrappedCollection.createEmptyCollection()
-        collection.deposit(token: <- underlying)
+        collection.depositWNFT(token: <- wrapped)
 
         //deposit the vault
         self.vaultCollection.depositVault(vault: <- FractionalVault.mint(collection: <- collection))

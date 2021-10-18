@@ -1,5 +1,4 @@
 import NonFungibleToken from "../../contracts/standard/NonFungibleToken.cdc"
-import WrappedCollection from "../../contracts/lib/WrappedCollection.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 // This transaction configure an account to hold a vault

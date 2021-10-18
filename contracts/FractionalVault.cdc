@@ -21,9 +21,6 @@ pub contract FractionalVault {
     /// @notice the address where the vaults get minted to (address that has it's keys revoked)
     pub let vaultAddress: Address
 
-    /// @notice the mapping of vault number to esource uuid
-    pub var vaults: {UInt256: UInt64}
-
     pub let VaultStoragePath: StoragePath
 	pub let VaultPublicPath: PublicPath
 
@@ -178,7 +175,7 @@ pub contract FractionalVault {
     }
 
     //Vault information//
-    //Array of prices with more than 1% voting for them
+    //Array of prices with more than 1% voting for them by vaultId
     access(contract) let prices: {UInt256: EnumerableSet.UFix64Set}
     //All prices and the number voting for them
     pub let priceToCount: {UInt256: {UFix64: UInt256}}
@@ -319,17 +316,17 @@ pub contract FractionalVault {
         //The vault that holds fungible tokens for an auction
         access(account) let bidVault: @FungibleToken.Vault
         //The collection for the fractions
-        access(account) var fractions: @NonFungibleToken.Collection
+        access(account) var fractions: @Fraction.Collection
         //Collection of the NFTs the user will fractionalize (UInt64 is meant to be the NFT's uuid)
         //change access control later
         access(account) var underlying: @WrappedCollection.Collection
 
         // Auction information// 
-        access(contract) var auctionEnd: UFix64?
-        access(contract) var auctionLength: UFix64
-        access(contract) var livePrice: UFix64?
-        access(contract) var winning: Address?
-        access(contract) var auctionState: State?
+        pub var auctionEnd: UFix64?
+        pub var auctionLength: UFix64
+        pub var livePrice: UFix64?
+        pub var winning: Address?
+        pub var auctionState: State?
 
         init(
             id: UInt256,
@@ -341,7 +338,7 @@ pub contract FractionalVault {
             
             // Resources
             self.bidVault <- FlowToken.createEmptyVault()
-            self.fractions <- Fraction.createEmptyCollection()
+            self.fractions <- Fraction.createEmptyFractionCollection()
             self.underlying <- WrappedCollection.createEmptyCollection()
 
             //optional nil variables
@@ -356,9 +353,22 @@ pub contract FractionalVault {
             return FractionalVault.prices[self.id]!.contains(price);
         }
 
+        // function to borrow a reference to the underlying collection
+        pub fun borrowUnderlying(): &{WrappedCollection.WrappedCollectionPublic} {
+            return &self.underlying as &{WrappedCollection.WrappedCollectionPublic}
+        }
+
+        pub fun borrowBidVault(): &{FungibleToken.Balance} {
+            return &self.bidVault as &{FungibleToken.Balance}
+        }
+
+        pub fun borrowCollection() : &{Fraction.CollectionPublic} {
+            return &self.fractions as! auth &{Fraction.CollectionPublic}
+        }
+
         access(contract) fun sendFlow(to: Address, value: UFix64) {
             //borrow a capability for the vault of the 'to' address
-            let toVault = getAccount(to).getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenBalance).borrow() ?? panic("Could not borrow a reference to the account receiver")
+            let toVault = getAccount(to).getCapability<&FlowToken.Vault>(/public/flowTokenVault).borrow() ?? panic("Could not borrow a reference to the account receiver")
             //withdraw 'value' from the bidVault
             toVault.deposit(from: <- self.bidVault.withdraw(amount: value))
         }
@@ -508,7 +518,6 @@ pub contract FractionalVault {
             self.vaults <- {}
         }
 
-        
         // takes a vault and adds it to the vault dictionary
         //change to access(account), pub now to avoid linter errrors
         pub fun depositVault(vault: @FractionalVault.Vault) {
@@ -581,7 +590,6 @@ pub contract FractionalVault {
             fractionCapability.deposit(token: <- fractions.withdraw(withdrawID: key))
         }
 
-        self.vaults[self.vaultCount] = vault.uuid
         self.vaultCount =  self.vaultCount + 1
         
         //destroy the collection sent
@@ -595,7 +603,6 @@ pub contract FractionalVault {
     init(vaultAddress: Address) {
         self.vaultAddress = vaultAddress
         self.vaultCount = 0
-        self.vaults = {}
         self.settings = Settings()
         self.prices = {}
         self.fractionPrices = {}

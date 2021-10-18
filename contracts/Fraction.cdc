@@ -85,8 +85,10 @@ pub contract Fraction: NonFungibleToken {
 	pub resource interface CollectionPublic {
 		pub fun deposit(token: @NonFungibleToken.NFT)
 		pub fun getIDs(): [UInt64]
+		pub fun getIDsByVault(vaultId: UInt256): [UInt64]
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
 		pub fun borrowFraction(id: UInt64): &{Fraction.Public}?
+		pub fun balance(): UInt256
 	}
 
     pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
@@ -95,7 +97,7 @@ pub contract Fraction: NonFungibleToken {
 		// NFT is a resource type with an `UInt64` ID field
 		pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 		// A dictionary to map fractions to their respective vault
-		pub var vaultToFractions: {UInt256: EnumerableSet.UInt64Set}
+		pub let vaultToFractions: {UInt256: EnumerableSet.UInt64Set}
 
 		init () {
 			self.ownedNFTs <- {}
@@ -134,6 +136,11 @@ pub contract Fraction: NonFungibleToken {
 			return self.ownedNFTs.keys
 		}
 
+		// getIDsByVault returns an array of the IDs in the collection corresponding to a vaultId
+		pub fun getIDsByVault(vaultId: UInt256): [UInt64] {
+			return self.vaultToFractions[vaultId]!.values()
+		}
+
         // Returns a borrowed reference to an NFT in the collection
         // so that the caller can read data and call methods from it
         // borrowNFT gets a reference to an NFT in the collection
@@ -166,6 +173,11 @@ pub contract Fraction: NonFungibleToken {
 
     // public function that anyone can call to create a new empty collection
 	pub fun createEmptyCollection(): @NonFungibleToken.Collection {
+		return <- create Collection()
+	}
+	
+	//Might wat to restrict access to this function
+	pub fun createEmptyFractionCollection(): @Fraction.Collection {
 		return <- create Collection()
 	}
 

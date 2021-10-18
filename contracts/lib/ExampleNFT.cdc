@@ -19,9 +19,10 @@ pub contract ExampleNFT: NonFungibleToken {
 
     pub resource NFT: NonFungibleToken.INFT {
         pub let id: UInt64
-
+		pub let collectionPath: PublicPath
         init() {
             self.id = ExampleNFT.totalSupply
+			self.collectionPath = ExampleNFT.CollectionPublicPath
             ExampleNFT.totalSupply = ExampleNFT.totalSupply + 1
         }
     }
