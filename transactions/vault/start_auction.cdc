@@ -4,7 +4,7 @@ import Fraction from "../../contracts/Fraction.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 // A transaction to kickoff an auction
-transaction(vaultAddress: Address, vaultId: UInt256, amount: UFix64) {
+transaction(vaultId: UInt256, amount: UFix64) {
 
     //Address where the vaults are stored
     let fractionalVault: &FractionalVault.Vault
@@ -12,6 +12,7 @@ transaction(vaultAddress: Address, vaultId: UInt256, amount: UFix64) {
     let sentVault: @FungibleToken.Vault
 
     prepare(signer: AuthAccount){
+        let vaultAddress = FractionalVault.vaultAddress
         let collectionCapability = getAccount(vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath) 
 
         let vaultCollection = collectionCapability.borrow() 

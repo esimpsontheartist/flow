@@ -1,8 +1,9 @@
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 // A transaction end an auction after the timer has run out
-transaction(vaultAddress: Address, vaultId: UInt256,) {
+transaction(vaultId: UInt256,) {
     execute {
+        let vaultAddress = FractionalVault.vaultAddress
         let collectionCapability = getAccount(vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath) 
 
         let vaultCollection = collectionCapability.borrow() 

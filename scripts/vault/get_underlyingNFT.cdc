@@ -11,8 +11,9 @@ pub struct NFT {
     }
 }
 // This scripts returns a reference to one of the NFTs in a vault's collection
-pub fun main(vaultAddress: Address, vaultId: UInt256, itemUUID: UInt64): NFT? {
+pub fun main(vaultId: UInt256, itemUUID: UInt64): NFT? {
 
+    let vaultAddress = FractionalVault.vaultAddress
     //Vault that will be returned
     if let vaultCollection = getAccount(vaultAddress).getCapability<&FractionalVault.VaultCollection{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() {
         if let vault = vaultCollection.borrowVault(id: vaultId) {

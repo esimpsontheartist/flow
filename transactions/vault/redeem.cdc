@@ -3,7 +3,7 @@ import Fraction from "../../contracts/Fraction.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 // a transaction to call the redeem() function in order to receive the underlying after
-transaction(vaultAddress: Address, vaultId: UInt256, amount: UFix64) {
+transaction(vaultId: UInt256, amount: UFix64) {
 
     //Reference to the signers Fraction collection
     let usersCollection: &Fraction.Collection
@@ -13,6 +13,7 @@ transaction(vaultAddress: Address, vaultId: UInt256, amount: UFix64) {
     let sentCollection: @NonFungibleToken.Collection
 
     prepare(signer: AuthAccount){
+        let vaultAddress = FractionalVault.vaultAddress
         let collectionCapability = getAccount(vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath) 
 
         let vaultCollection = collectionCapability.borrow() 

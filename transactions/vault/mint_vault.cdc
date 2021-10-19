@@ -14,7 +14,9 @@ transaction(nftId: UInt64) {
     
     //The user authorizes borrowing the transaction to borrow the collection
     prepare(account: AuthAccount) {
-        self.vaultCollection = account.borrow<&{FractionalVault.VaultCollectionPublic}>(from: FractionalVault.VaultStoragePath) ?? panic("could not load the account's vaults")
+        let vaultAddress = FractionalVault.vaultAddress
+        self.vaultCollection = getAccount(vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
+            ?? panic("Could not borrow a reference to the Fractional Vault Collection")
         self.collection = account.borrow<&ExampleNFT.Collection>(from: ExampleNFT.CollectionStoragePath) ?? panic("could not load collection")
     }
 
