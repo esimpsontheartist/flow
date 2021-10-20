@@ -100,8 +100,8 @@ pub contract WrappedCollection {
 	}
 
     pub resource Collection: WrappedCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
-        // dictionary of NFT conforming tokens
-        // NFT is a resource type with an `UInt64` ID field
+        // dictionary of WNFT conforming tokens
+        // WNFT is a resource type with an `UInt64` ID field
         pub var ownedNFTs: @{UInt64: WNFT}
 
         init () {
@@ -125,7 +125,7 @@ pub contract WrappedCollection {
         pub fun deposit(token: @NonFungibleToken.NFT) {
             let token <- token as! @WrappedCollection.WNFT
             //need to create the WNFT
-            let id: UInt64 = token.uuid
+            let id: UInt64 = token.borrowNFT().uuid
 
             // add the new token to the dictionary which removes the old one
             let oldToken <- self.ownedNFTs[id] <- token
@@ -137,7 +137,7 @@ pub contract WrappedCollection {
 
         pub fun depositWNFT(token: @WrappedCollection.WNFT) {
             //need to create the WNFT
-            let id: UInt64 = token.uuid
+            let id: UInt64 = token.borrowNFT().uuid
 
             // add the new token to the dictionary which removes the old one
             let oldToken <- self.ownedNFTs[id] <- token

@@ -8,7 +8,7 @@
 // use check_fusd_vault_setup.cdc and setup_fusd_vault.cdc respectively.
 
 import FungibleToken from "../../contracts/standard/FungibleToken.cdc"
-import FlowToken from "../../contracts/standard/FLOW.cdc"
+import FlowToken from "../../contracts/standard/FlowToken.cdc"
 
 pub fun main(address: Address): UFix64 {
     let account = getAccount(address)

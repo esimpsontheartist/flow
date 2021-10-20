@@ -1,7 +1,7 @@
 import NonFungibleToken from "../../contracts/standard/NonFungibleToken.cdc"
 import ExampleNFT from "../../contracts/lib/ExampleNFT.cdc"
 
-//Transaction to mint a new vault
+//Transaction to mint a new ExampleNFt
 
 transaction(recipient: Address, nftId: UInt64) {
     

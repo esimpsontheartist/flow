@@ -2,7 +2,7 @@ import NonFungibleToken from "../../contracts/standard/NonFungibleToken.cdc"
 import ExampleNFT from "../../contracts/lib/ExampleNFT.cdc"
 
 
-// This script returns the size of an account's KittyItems collection.
+// This script returns the size of an account's ExampleNFT collection.
 
 pub fun main(address: Address): Int {
     let account = getAccount(address)

@@ -1,5 +1,5 @@
 import FungibleToken from "./standard/FungibleToken.cdc"
-import FlowToken from "./standard/FLOW.cdc"
+import FlowToken from "./standard/FlowToken.cdc"
 import NonFungibleToken from "./standard/NonFungibleToken.cdc"
 import EnumerableSet from "./lib/EnumerableSet.cdc"
 import WrappedCollection from "./lib/WrappedCollection.cdc"

@@ -7,8 +7,6 @@ pub contract Fraction: NonFungibleToken {
 	pub let CollectionStoragePath: StoragePath
 	pub let CollectionPublicPath: PublicPath
 
-	/// @notice the address where the vaults get minted to (address that has it's keys revoked)
-	pub let vaultAddress: Address
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
 
@@ -213,7 +211,6 @@ pub contract Fraction: NonFungibleToken {
 	}
 
     init() {
-		self.vaultAddress = FractionalVault.vaultAddress
 		self.count = 0
         self.totalSupply = 0
 		self.fractionSupply = {}

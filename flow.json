@@ -7,10 +7,29 @@
 	},
 	"contracts": {
 		"EnumerableSet": "./contracts/lib/EnumerableSet.cdc",
+		"ExampleNFT": "./contracts/lib/ExampleNFT.cdc",
 		"WrappedCollection": "./contracts/lib/WrappedCollection.cdc",
-		"FLOW": "./contracts/standard/FLOW.cdc",
-		"FungibleToken": "./contracts/standard/FungibleToken.cdc",
-		"NonFungibleToken": "./contracts/standard/NonFungibleToken.cdc",
+		"FlowToken": {
+			"source": "./contracts/standard/FlowToken.cdc",
+			"aliases": {
+				"emulator": "0x0ae53cb6e3f42a79",
+				"testnet": "0x7e60df042a9c0868"
+			}
+		},
+		"FungibleToken": {
+			"source": "./contracts/standard/FungibleToken.cdc",
+			"aliases": {
+				"emulator": "0xee82856bf20e2aa6",
+				"testnet": "0x9a0766d93b6608b7"
+			}
+		},
+		"NonFungibleToken": {
+			"sourcE": "./contracts/standard/NonFungibleToken.cdc",
+			"aliases": {
+				"emulator": "0xee82856bf20e2aa6",
+				"testnet": "0x9a0766d93b6608b7"
+			}
+		},
 		"FractionalVault": "./contracts/FractionalVault.cdc",
 		"Fraction": "./contracts/Fraction.cdc"
 	},
@@ -22,8 +41,19 @@
 	"accounts": {
 		"emulator-account": {
 			"address": "f8d6e0586b0a20c7",
-			"key": "b5d63df3f64660a07a715c109712dc42f47f53533c317995012605357fffb04e"
+			"key": "cc607bf6438f239405fc4534571806f509ca12e55785e3e16b3050b3ff0679fc"
 		}
 	},
-	"deployments": {}
+	"deployments": {
+		"emulator": {
+			"emulator-account": [
+				"NonFungibleToken",
+				"EnumerableSet",
+				"ExampleNFT",
+				"WrappedCollection",
+				"Fraction",
+				"FractionalVault"
+			]
+		}
+	}
 }

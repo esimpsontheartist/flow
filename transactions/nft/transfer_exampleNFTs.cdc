@@ -3,7 +3,7 @@ import ExampleNFT from "../../contracts/lib/ExampleNFT.cdc"
 
 // This transaction transfers an Example NFT from one account to another.
 
-transaction(recipient: Address, withdrawID: UInt64) {
+transaction(recipient: Address, withdrawIDs: [UInt64]) {
     prepare(signer: AuthAccount) {
         
         // get the recipients public account object
@@ -16,11 +16,13 @@ transaction(recipient: Address, withdrawID: UInt64) {
         // borrow a public reference to the receivers collection
         let depositRef = recipient.getCapability(ExampleNFT.CollectionPublicPath)!.borrow<&{NonFungibleToken.CollectionPublic}>()!
 
-        // withdraw the NFT from the owner's collection
-        let nft <- collectionRef.withdraw(withdrawID: withdrawID)
+        for id in withdrawIDs {
+            // withdraw the NFT from the owner's collection
+            let nft <- collectionRef.withdraw(withdrawID: id)
 
-        // Deposit the NFT in the recipient's collection
-        depositRef.deposit(token: <-nft)
+            // Deposit the NFT in the recipient's collection
+            depositRef.deposit(token: <-nft)
+        }
     }
 }
 

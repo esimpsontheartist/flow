@@ -1,6 +1,6 @@
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
-// This scripts returns the IDs for an\ vault's underlying collection
+// This scripts returns the uuids for a vault's underlying collection
 pub fun main(vaultId: UInt256): [UInt64]? {
 
     let vaultAddress = FractionalVault.vaultAddress
