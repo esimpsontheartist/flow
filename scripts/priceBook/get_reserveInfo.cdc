@@ -1,4 +1,4 @@
-import FractionalVault from "../../contracts/FractionalVault.cdc"
+import PriceBook from "../../contracts/PriceBook.cdc"
 
 pub struct ReserveInfo {
   pub let voting: UInt256
@@ -15,6 +15,6 @@ pub struct ReserveInfo {
 
 // This scripts returns the reservePrice for a given vault ID
 pub fun main(vaultId: UInt256): ReserveInfo {
-    let reserveInfo = FractionalVault.reservePrice(vaultId)
+    let reserveInfo = PriceBook.reservePrice(vaultId)
     return ReserveInfo(voting: reserveInfo.voting, reserve: reserveInfo.reserve)
 }

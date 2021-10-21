@@ -237,23 +237,6 @@ export const getFractionIds = async (vaultId) => {
 };
 
 /*
- * Returns reserve information for a vault given it's id
- * @param {UInt256} vaultId - the vaults id
- * @throws Will throw an error if execution will be halted
- * @returns {ReserveInfo}
- * ReserveInfo = {
- * 	voting: UInt256
- * 	reserve: UFix64
- * }
- * */
-export const getReserveInfo = async (vaultId) => {
-	const name = "vault/get_resereverInfo";
-	const args = [vaultId];
-
-	return executeScript({ name, args });
-};
-
-/*
  * Returns the UUIDs of the underlying NFTs in the collection
  * @param {UInt256} vaultId - the vaults id
  * @throws Will throw an error if execution will be halted

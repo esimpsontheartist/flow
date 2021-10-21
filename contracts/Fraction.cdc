@@ -1,16 +1,15 @@
 import EnumerableSet from "./lib/EnumerableSet.cdc"
 import NonFungibleToken from "./standard/NonFungibleToken.cdc"
-import FractionalVault from "./FractionalVault.cdc"
-
+import PriceBook from "./PriceBook.cdc"
 pub contract Fraction: NonFungibleToken {
-	
+
 	pub let CollectionStoragePath: StoragePath
 	pub let CollectionPublicPath: PublicPath
 
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
 
-	//Count variable for the number of different set of fractions that have been minted (also used as an id)
+	//Count variable for the number of different set of fractions that have been minted 
 	pub var count: UInt256
 
 	//Total supply for a given fraction id
@@ -70,11 +69,16 @@ pub contract Fraction: NonFungibleToken {
         init(id: UInt64) {
             self.id = id
 			self.vaultId = Fraction.count
+			PriceBook.addToSupply(self.vaultId, 1)
         }
 
 		destroy() {
+			PriceBook.removeFromPrice(self.vaultId, 1, PriceBook.fractionPrices[self.vaultId]![self.uuid]!)
 			//remove from price because we are burning the NFT
-			FractionalVault.removeFromPrice(self.vaultId, 1, FractionalVault.fractionPrices[self.vaultId]![self.uuid]!)
+			Fraction.totalSupply = Fraction.totalSupply - 1
+			Fraction.fractionSupply[self.vaultId] = Fraction.fractionSupply[self.vaultId]! - 1
+			// update PriceBook
+			PriceBook.removeFromSupply(self.vaultId, 1)
 		}
 
     }
@@ -108,7 +112,7 @@ pub contract Fraction: NonFungibleToken {
 			let vaultId = Fraction.idToVault[token.id]!
 			self.vaultToFractions[vaultId]!.remove(token.id)
 			emit Withdraw(id: token.id, from: self.owner?.address)
-			
+
 			return <-token
 		}
 
@@ -194,15 +198,6 @@ pub contract Fraction: NonFungibleToken {
 		self.count = self.count + 1
 		self.fractionSupply[self.count] = amount
 		return <- newCollection
-	}
-
-	//function to burn a given amount of fractions 
-	//change to acces(acount), pub now for to avoid getting anoid by the linter
-	pub fun burnFractions(fractions: @Collection) {
-		var amount = fractions.ownedNFTs.length
-		self.fractionSupply[self.count] = self.fractionSupply[self.count]! - UInt256(amount)
-		self.totalSupply = self.totalSupply - UInt64(amount)
-		destroy fractions
 	}
 
 	//Get the total fraction suppkly for a given vaultId

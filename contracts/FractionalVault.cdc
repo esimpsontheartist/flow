@@ -3,6 +3,7 @@ import FlowToken from "./standard/FlowToken.cdc"
 import NonFungibleToken from "./standard/NonFungibleToken.cdc"
 import EnumerableSet from "./lib/EnumerableSet.cdc"
 import WrappedCollection from "./lib/WrappedCollection.cdc"
+import PriceBook from "./PriceBook.cdc"
 import Fraction from "./Fraction.cdc"
 
 /////////////////////////////////////
@@ -164,49 +165,6 @@ pub contract FractionalVault {
     // @notice An envet emitted when a vault resource is initialized
     pub event Initialized(id: UInt256)
 
-    pub struct ReserveInfo {
-        pub var voting: UInt256
-        pub var reserve: UFix64
-
-        init(_ voting: UInt256, _ reserve: UFix64){
-            self.voting = voting
-            self.reserve = reserve
-        }
-    }
-
-    //Vault information//
-    //Array of prices with more than 1% voting for them by vaultId
-    access(contract) let prices: {UInt256: EnumerableSet.UFix64Set}
-    //All prices and the number voting for them
-    pub let priceToCount: {UInt256: {UFix64: UInt256}}
-    //The price each fraction is bidding
-    pub let fractionPrices: {UInt256: {UInt64: UFix64}}
-
-    // add to a price count
-    // add price to reserve calc if 1% are voting for it
-    access(contract) fun addToPrice(_ vaultId: UInt256, _ amount: UInt256, _ price: UFix64) {
-        let nested = self.priceToCount[vaultId] ?? {}
-        nested[price] = nested[price]! + amount
-        self.priceToCount[vaultId] = nested
-        //TODO: Check the math adds up
-        if self.priceToCount[vaultId]![price]! * 100 >= Fraction.fractionSupply[vaultId]! && !self.prices[vaultId]!.contains(price) {
-            self.prices[vaultId]!.add(price)
-        }
-    }
-
-    // remove a price count
-    // remove price from reserve calc if less than 1% are voting for it
-    //TODO: CHANGE TO access(account) so that the Fraction contract can remove bids when fractions are burned
-    pub fun removeFromPrice(_ vaultId: UInt256, _ amount: UInt256, _ oldPrice: UFix64) {
-        let nested = self.priceToCount[vaultId] ?? {}
-        nested[oldPrice] = nested[oldPrice]! - amount
-        self.priceToCount[vaultId] = nested
-        //TODO: Check the math adds up
-        if self.priceToCount[vaultId]![oldPrice]! * 100 < Fraction.fractionSupply[vaultId]! && !self.prices[vaultId]!.contains(oldPrice) {
-            self.prices[vaultId]!.remove(oldPrice)
-        }
-    }
-
     //check that the argument is the right type of capbility (restriced vs non-restriced)
     pub fun updateFractionPrice(_ vaultId: UInt256, collection: &Fraction.Collection, new: UFix64) {
 
@@ -218,92 +176,19 @@ pub contract FractionalVault {
             return
         }
 
-        self.addToPrice(vaultId, collection.vaultToFractions[vaultId]!.length(), new)
+        PriceBook.addToPrice(vaultId, collection.vaultToFractions[vaultId]!.length(), new)
 
         //Update the price for fractionsPrices and remove old prices
         for id in fractionIds {
             let fraction = collection.borrowFraction(id: id)
             let uuid = fraction!.uuid
-            self.removeFromPrice(vaultId, 1, self.fractionPrices[vaultId]![uuid]!)
-            let nested = self.fractionPrices[vaultId] ?? {}
+            PriceBook.removeFromPrice(vaultId, 1, PriceBook.fractionPrices[vaultId]![uuid]!)
+            let nested = PriceBook.fractionPrices[vaultId] ?? {}
             nested[uuid] = new
-            self.fractionPrices[vaultId] = nested
+            PriceBook.fractionPrices[vaultId] = nested
         }
-
-        
         
         emit PriceUpdate(fractionsOwner: fractionsOwner, price: new)
-    }
-
-    access(contract) fun slice(_ array: [UFix64], _ begin: Integer, _ last: Integer): [UFix64] {
-        var arr: [UFix64] = []
-        var i = begin
-        while i < last {
-            arr.append(array[i])
-            i = i + 1
-        }
-        return arr
-    }
-
-    access(contract) fun sort(_ array: [UFix64]): [UFix64] {
-        //create copy because arguments are constant
-        var arr = array
-        var length = arr.length
-        //base case
-        if length < 2 {
-            return arr
-        }
-
-        //position of the partition
-        var currentPosition = 0
-
-        var i = 1
-        while i < length {
-            if arr[i] <= arr[0] {
-                currentPosition = currentPosition + 1
-                arr[i] <-> arr[currentPosition]
-            }
-        }
-
-        //swap
-        arr[0] <-> arr[currentPosition]
-
-        var left: [UFix64] = self.sort(self.slice(arr, 0, currentPosition))
-        var right: [UFix64] = self.sort(self.slice(arr, currentPosition + 1, length))
-
-        //mergin the arrays
-        arr = left
-        arr.append(arr[currentPosition])
-        arr.appendAll(right)
-        return arr
-    }
-
-    pub fun reservePrice(_ vaultId: UInt256): ReserveInfo {
-
-        var tempPrices = self.prices[vaultId]!.values()
-        tempPrices = self.sort(tempPrices)
-        var voting: UInt256 = 0
-        var x: Int = 0
-        while x < tempPrices.length {   
-            if tempPrices[x] != 0.0 {
-                voting = voting + self.priceToCount[vaultId]![tempPrices[x]]!
-            }
-            x = x + 1
-        }
-
-        var reserve = 0.0 
-        var count: UInt256 = 0
-        var y = 0
-        while y < tempPrices.length {
-            if tempPrices[y] != 0.0 {
-                count = count + self.priceToCount[vaultId]![tempPrices[y]]!
-            }
-            if count * 2 >= voting {
-                reserve = tempPrices[y]
-                break
-            }
-        }
-        return ReserveInfo(voting, reserve)
     }
 
     pub resource Vault {
@@ -350,7 +235,7 @@ pub contract FractionalVault {
         }
         
         pub fun isLivePrice(price: UFix64): Bool {
-            return FractionalVault.prices[self.id]!.contains(price);
+            return PriceBook.prices[self.id]!.contains(price);
         }
 
         // function to borrow a reference to the underlying collection
@@ -378,8 +263,8 @@ pub contract FractionalVault {
         pub fun start(_ flowVault: @FungibleToken.Vault) {
             pre {
                 self.auctionState == State.inactive : "start:no auction starts"
-                flowVault.balance >= FractionalVault.reservePrice(self.id).reserve : "start:too low bid"
-                FractionalVault.reservePrice(self.id).voting * 2 >= Fraction.fractionSupply[self.id]! : "start:not enough voters"
+                flowVault.balance >= PriceBook.reservePrice(self.id).reserve : "start:too low bid"
+                PriceBook.reservePrice(self.id).voting * 2 >= Fraction.fractionSupply[self.id]! : "start:not enough voters"
             }
 
             self.auctionEnd = getCurrentBlock().timestamp + self.auctionLength
@@ -454,7 +339,7 @@ pub contract FractionalVault {
             let fractionsOwner = fractions.owner?.address!
 
             //burn fractions
-            Fraction.burnFractions(fractions: <- fractions)
+            destroy fractions
 
             //get capabilit of the winners collection
             let collection = getAccount(fractionsOwner).getCapability(WrappedCollection.WrappedCollectionPublicPath).borrow<&{WrappedCollection.WrappedCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
@@ -485,7 +370,7 @@ pub contract FractionalVault {
             var share = (UFix64(fractions.balance()) * self.bidVault.balance) / UFix64(Fraction.fractionSupply[self.id]!)
 
             //burn the fractions
-            Fraction.burnFractions(fractions: <- fractions)
+            destroy fractions
 
             //sendFlow
             self.sendFlow(to: fractionsOwner, value: share)
@@ -604,9 +489,6 @@ pub contract FractionalVault {
         self.vaultAddress = vaultAddress
         self.vaultCount = 0
         self.settings = Settings()
-        self.prices = {}
-        self.fractionPrices = {}
-        self.priceToCount = {}
 
         self.VaultPublicPath = /public/fractionalVault
         self.VaultStoragePath = /storage/fractionalVault

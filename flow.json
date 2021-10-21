@@ -31,7 +31,8 @@
 			}
 		},
 		"FractionalVault": "./contracts/FractionalVault.cdc",
-		"Fraction": "./contracts/Fraction.cdc"
+		"Fraction": "./contracts/Fraction.cdc",
+		"PriceBook": "./contracts/PriceBook.cdc"
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
@@ -52,7 +53,13 @@
 				"ExampleNFT",
 				"WrappedCollection",
 				"Fraction",
-				"FractionalVault"
+				"PriceBook",
+				{
+					"name": "FractionalVault",
+					"args": [ 
+						{"type": "Address", "value": "0xf8d6e0586b0a20c7"}
+					]
+				}
 			]
 		}
 	}

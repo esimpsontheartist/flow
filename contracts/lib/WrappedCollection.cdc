@@ -177,8 +177,8 @@ pub contract WrappedCollection {
 
 
     init(){
-        self.WrappedCollectionPublicPath = /public/fractionalCollection
-		self.WrappedCollectionStoragePath = /storage/fractionalCollection
+        self.WrappedCollectionPublicPath = /public/wrappedCollection
+		self.WrappedCollectionStoragePath = /storage/wrappedCollection
 
         self.account.save<@WrappedCollection.Collection>(<- WrappedCollection.createEmptyCollection(), to: WrappedCollection.WrappedCollectionStoragePath)
 		self.account.link<&{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath, target: WrappedCollection.WrappedCollectionStoragePath)
