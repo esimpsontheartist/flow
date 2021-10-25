@@ -1,6 +1,7 @@
-import EnumerableSet from "./lib/EnumerableSet.cdc"
-import NonFungibleToken from "./standard/NonFungibleToken.cdc"
+import NonFungibleToken from "./NonFungibleToken.cdc"
+import EnumerableSet from "./EnumerableSet.cdc"
 import PriceBook from "./PriceBook.cdc"
+
 pub contract Fraction: NonFungibleToken {
 
 	pub let CollectionStoragePath: StoragePath

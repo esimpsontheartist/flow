@@ -1,4 +1,4 @@
-import NonFungibleToken from "../standard/NonFungibleToken.cdc"
+import NonFungibleToken from "./NonFungibleToken.cdc"
 
 // A simple NFT contract to be used in testing
 

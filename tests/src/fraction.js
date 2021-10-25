@@ -8,12 +8,22 @@ import { getVaultAdminAddress } from "./common";
  * Deploys the Fraction contract to the Vault Admin
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
- * */
+ */
 export const deployFraction = async () => {
 	const VaultAdmin = await getVaultAdminAddress();
 	await mintFlow(VaultAdmin, "10.0");
 
-	return deployContractByName({ to: VaultAdmin, name: "Fraction" });
+	await deployContractByName({ to: VaultAdmin, name: "NonFungibleToken" });
+	await deployContractByName({ to: VaultAdmin, name: "EnumerableSet" });
+	await deployContractByName({ to: VaultAdmin, name: "PriceBook", addressMap: {EnumerableSet: VaultAdmin}});
+
+	const addressMap = { 
+		NonFungibleToken: VaultAdmin,
+		EnumerableSet: VaultAdmin,
+		PriceBook: VaultAdmin
+	}
+
+	return deployContractByName({ to: VaultAdmin, name: "Fraction", addressMap });
 };
 
 // STATE MUTATION (TRANSACTIONS)
@@ -121,7 +131,7 @@ export const getFractionsByVault = async (address, vaultId) => {
  * @throws Will throw an error if execution will be halted
  * @returns {UInt64}
  * */
-export const getCount = async () => {
+export const getTotalSupply = async () => {
 	const name = "fraction/get_totalSupply";
 	const args = [];
 

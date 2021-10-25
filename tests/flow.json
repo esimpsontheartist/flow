@@ -5,7 +5,35 @@
 			"serviceAccount": "emulator-account"
 		}
 	},
-	"contracts": {},
+	"contracts": {
+		"EnumerableSet": "../contracts/EnumerableSet.cdc",
+		"ExampleNFT": "../contracts/ExampleNFT.cdc",
+		"WrappedCollection": "../contracts/WrappedCollection.cdc",
+		"FlowToken": {
+			"source": "../contracts/FlowToken.cdc",
+			"aliases": {
+				"emulator": "0x0ae53cb6e3f42a79",
+				"testnet": "0x7e60df042a9c0868"
+			}
+		},
+		"FungibleToken": {
+			"source": "../contracts/FungibleToken.cdc",
+			"aliases": {
+				"emulator": "0xee82856bf20e2aa6",
+				"testnet": "0x9a0766d93b6608b7"
+			}
+		},
+		"NonFungibleToken": {
+			"source": "../contracts/NonFungibleToken.cdc",
+			"aliases": {
+				"emulator": "0xee82856bf20e2aa6",
+				"testnet": "0x9a0766d93b6608b7"
+			}
+		},
+		"FractionalVault": "../contracts/FractionalVault.cdc",
+		"Fraction": "../contracts/Fraction.cdc",
+		"PriceBook": "../contracts/PriceBook.cdc"
+	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
 		"mainnet": "access.mainnet.nodes.onflow.org:9000",
@@ -14,8 +42,25 @@
 	"accounts": {
 		"emulator-account": {
 			"address": "f8d6e0586b0a20c7",
-			"key": "8e3983030d2af1fa01c078241ad7f699d492e0239247f38d5a96cb959e436531"
+			"key": "cc607bf6438f239405fc4534571806f509ca12e55785e3e16b3050b3ff0679fc"
 		}
 	},
-	"deployments": {}
+	"deployments": {
+		"emulator": {
+			"emulator-account": [
+				"NonFungibleToken",
+				"EnumerableSet",
+				"ExampleNFT",
+				"WrappedCollection",
+				"Fraction",
+				"PriceBook",
+				{
+					"name": "FractionalVault",
+					"args": [ 
+						{"type": "Address", "value": "0xf8d6e0586b0a20c7"}
+					]
+				}
+			]
+		}
+	}
 }

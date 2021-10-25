@@ -6,25 +6,25 @@
 		}
 	},
 	"contracts": {
-		"EnumerableSet": "./contracts/lib/EnumerableSet.cdc",
-		"ExampleNFT": "./contracts/lib/ExampleNFT.cdc",
-		"WrappedCollection": "./contracts/lib/WrappedCollection.cdc",
+		"EnumerableSet": "./contracts/EnumerableSet.cdc",
+		"ExampleNFT": "./contracts/ExampleNFT.cdc",
+		"WrappedCollection": "./contracts/WrappedCollection.cdc",
 		"FlowToken": {
-			"source": "./contracts/standard/FlowToken.cdc",
+			"source": "./contracts/FlowToken.cdc",
 			"aliases": {
 				"emulator": "0x0ae53cb6e3f42a79",
 				"testnet": "0x7e60df042a9c0868"
 			}
 		},
 		"FungibleToken": {
-			"source": "./contracts/standard/FungibleToken.cdc",
+			"source": "./contracts/FungibleToken.cdc",
 			"aliases": {
 				"emulator": "0xee82856bf20e2aa6",
 				"testnet": "0x9a0766d93b6608b7"
 			}
 		},
 		"NonFungibleToken": {
-			"sourcE": "./contracts/standard/NonFungibleToken.cdc",
+			"sourcE": "./contracts/NonFungibleToken.cdc",
 			"aliases": {
 				"emulator": "0xee82856bf20e2aa6",
 				"testnet": "0x9a0766d93b6608b7"

@@ -1,8 +1,8 @@
-import FungibleToken from "./standard/FungibleToken.cdc"
-import FlowToken from "./standard/FlowToken.cdc"
-import NonFungibleToken from "./standard/NonFungibleToken.cdc"
-import EnumerableSet from "./lib/EnumerableSet.cdc"
-import WrappedCollection from "./lib/WrappedCollection.cdc"
+import FungibleToken from "./FungibleToken.cdc"
+import FlowToken from "./FlowToken.cdc"
+import NonFungibleToken from "./NonFungibleToken.cdc"
+import EnumerableSet from "./EnumerableSet.cdc"
+import WrappedCollection from "./WrappedCollection.cdc"
 import PriceBook from "./PriceBook.cdc"
 import Fraction from "./Fraction.cdc"
 
@@ -485,8 +485,9 @@ pub contract FractionalVault {
         return <- vault
     }
 
-    init(vaultAddress: Address) {
-        self.vaultAddress = vaultAddress
+    init() {
+        //Hard coded for now, should switch to using init() args for testnet deployment
+        self.vaultAddress = 0x179b6b1cb6755e31
         self.vaultCount = 0
         self.settings = Settings()
 

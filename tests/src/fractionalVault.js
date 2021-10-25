@@ -1,6 +1,6 @@
-import { deployContractByName, executeScript, mintFlow, sendTransaction } from "flow-js-testing";
+import { deployContractByName, executeScript, mintFlow, sendTransaction, getContractAddress } from "flow-js-testing";
 import { getVaultAdminAddress, getVaultAddress } from "./common";
-
+import { deployFraction } from "./fraction";
 
 
 // CONTRACT DEPLOYMENT
@@ -15,9 +15,20 @@ export const deployFractionalVault = async () => {
 	const VaultAdmin = await getVaultAdminAddress();
 	await mintFlow(VaultAdmin, "10.0");
     const VaultAddress = await getVaultAddress();
-    await mintFlow(VaultAddress, "10.0");
 
-	return deployContractByName({ to: VaultAdmin, name: "FractionalVault", args: [VaultAddress] });
+
+	await deployFraction()
+	await deployContractByName({ to: VaultAdmin, name: "WrappedCollection", addressMap: {NonFungibleToken: VaultAdmin} });
+
+	const addressMap = { 
+		NonFungibleToken: VaultAdmin,
+		EnumerableSet: VaultAdmin,
+		PriceBook: VaultAdmin,
+		Fraction: VaultAdmin,
+		WrappedCollection: VaultAdmin
+	}
+
+	return deployContractByName({ to: VaultAdmin, name: "FractionalVault", addressMap: addressMap });
 };
 
 // STATE MUTATION (TRANSACTIONS)
@@ -159,19 +170,6 @@ export const updatePrice = async (signer, vaultId, newPrice) => {
 // SCRIPTS
 
 /*
- * Returns the address where vaults are stored
- * @param none
- * @throws Will throw an error if execution will be halted
- * @returns {Address}
- * */
-export const getBidVaultBalance = async () => {
-	const name = "vault/get_vaultAddress";
-	const args = [];
-
-	return executeScript({ name, args });
-};
-
-/*
  * Returns the number of vaults that have been created
  * Same as "totalSupply" of vaults
  * @param none
@@ -282,6 +280,23 @@ export const getUnderlyingNFT = async (vaultId, itemUUID) => {
 export const getUnderlyingWNFT = async (vaultId, itemUUID) => {
 	const name = "vault/get_underlyingWNFT";
 	const args = [vaultId, itemUUID];
+
+	return executeScript({ name, args });
+};
+
+/*
+ * Returns reserve information for a vault given it's id
+ * @param {UInt256} vaultId - the vaults id
+ * @throws Will throw an error if execution will be halted
+ * @returns {ReserveInfo}
+ * ReserveInfo = {
+ * 	voting: UInt256
+ * 	reserve: UFix64
+ * }
+ * */
+export const getReserveInfo = async (vaultId) => {
+	const name = "priceBook/get_resereverInfo";
+	const args = [vaultId];
 
 	return executeScript({ name, args });
 };

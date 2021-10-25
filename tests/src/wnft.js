@@ -14,7 +14,13 @@ export const deployWrappedCollection = async () => {
 	const VaultAdmin = await getVaultAdminAddress();
 	await mintFlow(VaultAdmin, "10.0");
 
-	return deployContractByName({ to: VaultAdmin, name: "WrappedCollection" });
+	await deployContractByName({ to: VaultAdmin, name: "NonFungibleToken" });
+
+	let addressMap = {
+		NonFungibleToken: VaultAdmin
+	}
+
+	return deployContractByName({ to: VaultAdmin, name: "WrappedCollection", addressMap });
 };
 
 // STATE MUTATION (TRANSACTIONS)

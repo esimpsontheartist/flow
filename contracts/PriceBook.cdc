@@ -1,4 +1,4 @@
-import EnumerableSet from "./lib/EnumerableSet.cdc"
+import EnumerableSet from "./EnumerableSet.cdc"
 
 /*
  * A contract to keep track of the prices elected by fraction
