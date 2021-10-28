@@ -22,13 +22,12 @@ export const deployFractionalVault = async () => {
 
 	const addressMap = { 
 		NonFungibleToken: VaultAdmin,
-		EnumerableSet: VaultAdmin,
 		PriceBook: VaultAdmin,
 		Fraction: VaultAdmin,
 		WrappedCollection: VaultAdmin
 	}
 
-	return deployContractByName({ to: VaultAdmin, name: "FractionalVault", addressMap: addressMap });
+	return deployContractByName({ to: VaultAdmin, name: "FractionalVault", addressMap: addressMap, args: [VaultAddress] });
 };
 
 // STATE MUTATION (TRANSACTIONS)
@@ -52,14 +51,14 @@ export const setupVaultOnAccount = async (account) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const mintVault = async (nftId) => {
+export const mintVault = async (underlyingOwner, nftId, recipient) => {
 	const VaultAdmin = await getVaultAdminAddress();
 
 	const name = "vault/mint_vault";
-	const args = [nftId];
-	const signers = [VaultAdmin];
+	const args = [nftId, recipient];
+	const signers = [underlyingOwner];
 
-	return sendTransaction({ name, args, signers });
+	return sendTransaction({ name, args, signers, limit: 9999 });
 };
 
 /*

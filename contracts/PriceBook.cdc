@@ -17,10 +17,14 @@ import EnumerableSet from "./EnumerableSet.cdc"
         self.fractionSupply[vaultId] = self.fractionSupply[vaultId]! - amount
     }
     
-    // A function to decrease supply in the mapping
+    // A function to increase the supply in the mapping
     // CHANGE TO ACCESS ACCOUNT SO THAT ONLY FRACTION.CDC can call the function
     pub fun addToSupply(_ vaultId: UInt256, _ amount: UInt256) {
-        self.fractionSupply[vaultId] = self.fractionSupply[vaultId]! + amount
+        if self.fractionSupply[vaultId] == nil {
+            self.fractionSupply[vaultId] = amount
+        } else {
+            self.fractionSupply[vaultId] = self.fractionSupply[vaultId]! + amount
+        }
     }
     
     pub struct ReserveInfo {

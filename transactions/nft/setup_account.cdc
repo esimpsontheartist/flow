@@ -1,9 +1,9 @@
-import NonFungibleToken from "../../contracts/standard/NonFungibleToken.cdc"
-import ExampleNFT from "../../contracts/lib/ExampleNFT.cdc"
+import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import ExampleNFT from "../../contracts/ExampleNFT.cdc"
 
 //Transaction that configures an account to hold an example NFT
 
-transaction(user: Address, nftId: UInt64) {
+transaction() {
     prepare(signer: AuthAccount) {
         // if the account doesn't already have a collection
         if signer.borrow<&ExampleNFT.Collection>(from: ExampleNFT.CollectionStoragePath) == nil {

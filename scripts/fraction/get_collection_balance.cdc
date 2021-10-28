@@ -1,4 +1,4 @@
-import NonFungibleToken from "../../contracts/standard/NonFungibleToken.cdc"
+import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
 
 

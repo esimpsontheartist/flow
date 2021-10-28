@@ -6,6 +6,7 @@ import NonFungibleToken from "./NonFungibleToken.cdc"
 //
 pub contract WrappedCollection {
 
+
     pub let WrappedCollectionStoragePath: StoragePath
 	pub let WrappedCollectionPublicPath: PublicPath
     //Event emmited when contract has been deployed
@@ -32,7 +33,8 @@ pub contract WrappedCollection {
     }
 
     // An NFT wrapped with useful information (by @briandilley)
-    pub resource WNFT : WrappedNFT {
+    pub resource WNFT : WrappedNFT, NonFungibleToken.INFT {
+        pub let id: UInt64
         access(contract) var nft: @NonFungibleToken.NFT?
         access(self) let address: Address
         access(self) let collectionPath: PublicPath
@@ -44,6 +46,7 @@ pub contract WrappedCollection {
             collectionPath: PublicPath,
             nftType: Type
         ) {
+            self.id = nft.uuid
             self.nft <- nft
             self.address = address
             self.collectionPath = collectionPath
@@ -99,7 +102,7 @@ pub contract WrappedCollection {
         pub fun borrowWNFT(id: UInt64): &WrappedCollection.WNFT
 	}
 
-    pub resource Collection: WrappedCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: WrappedCollectionPublic, NonFungibleToken.CollectionPublic {
         // dictionary of WNFT conforming tokens
         // WNFT is a resource type with an `UInt64` ID field
         pub var ownedNFTs: @{UInt64: WNFT}
@@ -123,10 +126,10 @@ pub contract WrappedCollection {
         // deposit takes a NFT conforming to WNFT and adds it to the collections dictionary
         // and adds the ID to the id array
         pub fun deposit(token: @NonFungibleToken.NFT) {
+            let id: UInt64 = token.id
             let token <- token as! @WrappedCollection.WNFT
             //need to create the WNFT
-            let id: UInt64 = token.borrowNFT().uuid
-
+            
             // add the new token to the dictionary which removes the old one
             let oldToken <- self.ownedNFTs[id] <- token
 
@@ -137,7 +140,7 @@ pub contract WrappedCollection {
 
         pub fun depositWNFT(token: @WrappedCollection.WNFT) {
             //need to create the WNFT
-            let id: UInt64 = token.borrowNFT().uuid
+            let id: UInt64 = token.id
 
             // add the new token to the dictionary which removes the old one
             let oldToken <- self.ownedNFTs[id] <- token

@@ -1,7 +1,6 @@
 import FungibleToken from "./FungibleToken.cdc"
 import FlowToken from "./FlowToken.cdc"
 import NonFungibleToken from "./NonFungibleToken.cdc"
-import EnumerableSet from "./EnumerableSet.cdc"
 import WrappedCollection from "./WrappedCollection.cdc"
 import PriceBook from "./PriceBook.cdc"
 import Fraction from "./Fraction.cdc"
@@ -199,12 +198,12 @@ pub contract FractionalVault {
         access(account) let settings: Settings
 
         //The vault that holds fungible tokens for an auction
-        access(account) let bidVault: @FungibleToken.Vault
+        access(contract) let bidVault: @FungibleToken.Vault
         //The collection for the fractions
-        access(account) var fractions: @Fraction.Collection
+        access(contract) var fractions: @Fraction.Collection
         //Collection of the NFTs the user will fractionalize (UInt64 is meant to be the NFT's uuid)
         //change access control later
-        access(account) var underlying: @WrappedCollection.Collection
+        access(contract) var underlying: @WrappedCollection.Collection
 
         // Auction information// 
         pub var auctionEnd: UFix64?
@@ -377,6 +376,13 @@ pub contract FractionalVault {
 
             emit Cash(owner: fractionsOwner, flow: share)
         }
+
+        //Helper function that allows the minting function to rapidly
+        //swap the old empty collection for
+        access(contract) fun depositCollection(_ collection: @WrappedCollection.Collection){
+            let oldCollection <- self.underlying <- collection
+            destroy oldCollection
+        }
         
         //Resource destruction
         //Add more logic behind conditions before a vault and other resources are destructed
@@ -432,6 +438,8 @@ pub contract FractionalVault {
             }
         }
 
+        
+
         destroy() {
 			destroy self.vaults
 		}
@@ -447,47 +455,47 @@ pub contract FractionalVault {
     /// @param collection the collection for the underlying set of NFTS
     /// @return the ID of the vault
     // CHANGE: remove the return and just mint directly to the address that will hold the vault
-    pub fun mint(collection: @WrappedCollection.Collection): @FractionalVault.Vault {
+    pub fun mint(collection: @WrappedCollection.Collection, fractionRecipient: Address): @FractionalVault.Vault {
 
         var count = Fraction.count + 1
         //Initialize a vault
         let vault <- create Vault(id: Fraction.count)
 
-        let collectionOwner = collection.owner!
+        //collection must have an owner, otherwise this transaction will revert its execution
+        let recipient = getAccount(fractionRecipient)
 
         //mint the fractions
-        let fractions <- Fraction.mintFractions(amount: 10000, vaultId: self.vaultCount)
+        /**
+         * Optimize Enumberable Set
+         * Separate mint function into smaller cheaper functions
+         */
+        let fractions <- Fraction.mintFractions(amount: 500, vaultId: self.vaultCount)
         assert(count == Fraction.count, message : "mismatch")
         
-        emit Mint(underlyingOwner: collectionOwner.address, vaultId: vault.id);
+        emit Mint(underlyingOwner: recipient.address, vaultId: vault.id);
 
         //deposit the underlying NFTs to the Vault
-        let keys = collection.getIDs()
-        for key in keys {
-            vault.underlying.deposit(token: <- collection.withdraw(withdrawID: key))
-        }
+        vault.depositCollection(<- collection)
 
         //capability to deposit fractions to the owner of the underlying NFT
-        let fractionCapability = collectionOwner.getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
+        let fractionCapability = recipient.getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
         //Receive the underlying
         let fractionIds = fractions.getIDs()
-        for key in fractionIds {
-            fractionCapability.deposit(token: <- fractions.withdraw(withdrawID: key))
+        for fractionId in fractionIds {
+            fractionCapability.deposit(token: <- fractions.withdraw(withdrawID: fractionId))
         }
 
         self.vaultCount =  self.vaultCount + 1
-        
-        //destroy the collection sent
-        destroy collection
+
         //destroy the fraction resources since they have been moved
         destroy fractions
         //return the vault
         return <- vault
     }
 
-    init() {
+    init(vaultAddress: Address) {
         //Hard coded for now, should switch to using init() args for testnet deployment
-        self.vaultAddress = 0x179b6b1cb6755e31
+        self.vaultAddress = vaultAddress
         self.vaultCount = 0
         self.settings = Settings()
 

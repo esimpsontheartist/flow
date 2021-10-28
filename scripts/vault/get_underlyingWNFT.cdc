@@ -1,5 +1,5 @@
-import WrappedCollection from "../../contracts/lib/WrappedCollection.cdc"
-import NonFungibleToken from "../../contracts/standard/NonFungibleToken.cdc"
+import WrappedCollection from "../../contracts/WrappedCollection.cdc"
+import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 

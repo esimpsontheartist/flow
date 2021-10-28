@@ -8,3 +8,5 @@ export const toUFix64 = (value) => value.toFixed(UFIX64_PRECISION);
 export const getVaultAdminAddress = async () => getAccountAddress("FractionalVaultAdmin");
 // Address where the vault resource is minted to
 export const getVaultAddress = async () => getAccountAddress("FractionalVaultOwner");
+// Mock address for testing
+export const getBobsAddress = async () => getAccountAddress("Bob");

@@ -64,15 +64,18 @@ pub contract EnumerableSet {
      */
     priv fun _remove(_ set: Set, _ value: UInt256): SetReturn {
         var setCopy = set
-        var valueIndex = setCopy._indexes[value]
+        if setCopy._indexes[value] == nil {
+            return SetReturn(setCopy, false)
+        }
+        var valueIndex = setCopy._indexes[value]!
 
-        if valueIndex != 0 {
+        if self._contains(setCopy, value) {
             // Equivalent to contains(set, value)
             // To delete an element from the _values array in O(1), we swap the element to delete with the last one in
             // the array, and then remove the last element (sometimes called as 'swap and pop').
             // This modifies the order of the array, as noted in {at}.
 
-            var toDeleteIndex = valueIndex! - 1;
+            var toDeleteIndex = valueIndex - 1;
             var lastIndex = UInt256(setCopy._values.length) - 1
 
             if lastIndex != toDeleteIndex {
@@ -90,7 +93,7 @@ pub contract EnumerableSet {
             // Delete the index for the deleted slot
             setCopy._indexes.remove(key: value)
 
-            return SetReturn(setCopy, false)
+            return SetReturn(setCopy, true)
         }
 
         return SetReturn(setCopy, false)
@@ -100,7 +103,7 @@ pub contract EnumerableSet {
     * @dev Returns true if the value is in the set. O(1).
     */
     priv fun _contains(_ set: Set, _ value: UInt256): Bool {
-        return set._values[value] != 0
+        return set._indexes[value] != 0
     }
 
     /**

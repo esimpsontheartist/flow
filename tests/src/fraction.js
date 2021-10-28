@@ -78,7 +78,7 @@ export const getCollectionBalance = async (address) => {
  * @throws Will throw an error if execution will be halted
  * @returns {[UInt64]}
  * */
-export const getCollectionIds = async (address) => {
+export const getFractionCollectionIds = async (address) => {
 	const name = "fraction/get_collection_ids";
 	const args = [address];
 

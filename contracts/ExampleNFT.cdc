@@ -17,7 +17,12 @@ pub contract ExampleNFT: NonFungibleToken {
 
     pub event Deposit(id: UInt64, to: Address?)
 
-    pub resource NFT: NonFungibleToken.INFT {
+	pub resource interface Public {
+		pub let id: UInt64
+		pub let collectionPath: PublicPath
+	}
+
+    pub resource NFT: NonFungibleToken.INFT, Public {
         pub let id: UInt64
 		pub let collectionPath: PublicPath
         init() {
@@ -78,6 +83,15 @@ pub contract ExampleNFT: NonFungibleToken {
 		// so that the caller can read its metadata and call its methods
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
 			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+		}
+
+		pub fun borrowExample(id: UInt64): &{ExampleNFT.Public}? {
+			if self.ownedNFTs[id] != nil {
+				let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+				return ref as! &ExampleNFT.NFT
+			} else {
+				return nil
+			}
 		}
 
 		//returns the number of fractions in a collection

@@ -1,9 +1,9 @@
-import NonFungibleToken from "../../contracts/standard/NonFungibleToken.cdc"
-import ExampleNFT from "../../contracts/lib/ExampleNFT.cdc"
+import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import ExampleNFT from "../../contracts/ExampleNFT.cdc"
 
 //Transaction to mint a new ExampleNFt
 
-transaction(recipient: Address, nftId: UInt64) {
+transaction(recipient: Address) {
     
     // local variable for storing the collection reference
     let collection: &{ExampleNFT.CollectionPublic}

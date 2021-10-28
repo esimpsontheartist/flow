@@ -10,11 +10,11 @@ import { getVaultAdminAddress } from "./common";
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  */
-export const deployExampleNFT = async () => {
+export const deployExampleNFT = async (address) => {
 	const VaultAdmin = await getVaultAdminAddress();
 	await mintFlow(VaultAdmin, "10.0");
-
-	return deployContractByName({ to: VaultAdmin, name: "ExampleNFT" });
+	
+	return deployContractByName({ to: VaultAdmin, name: "ExampleNFT", addressMap: {NonFungibleToken: address} });
 };
 
 // STATE MUTATION (TRANSACTIONS)
@@ -38,10 +38,10 @@ export const setupExampleNFTOnAccount = async (account) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const mintExampleNFT = async (sender, recipient, nftId) => {
+export const mintExampleNFT = async (sender, recipient) => {
 
 	const name = "nft/mint_exampleNFT";
-	const args = [recipient, nftId];
+	const args = [recipient];
 	const signers = [sender];
 
 	return sendTransaction({ name, args, signers });
@@ -71,7 +71,7 @@ export const transferExampleNFT = async (sender, recipient, withdrawIDs) => {
  * @throws Will throw an error if execution will be halted
  * @returns {[UInt64]}
  * */
-export const getCollectionIds = async (address) => {
+export const getExampleNFTCollectionIds = async (address) => {
 	const name = "nft/get_collection_ids";
 	const args = [address];
 

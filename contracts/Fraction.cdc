@@ -70,7 +70,6 @@ pub contract Fraction: NonFungibleToken {
         init(id: UInt64) {
             self.id = id
 			self.vaultId = Fraction.count
-			PriceBook.addToSupply(self.vaultId, 1)
         }
 
 		destroy() {
@@ -124,7 +123,13 @@ pub contract Fraction: NonFungibleToken {
 
 			let id: UInt64 = token.id
 			let vaultId: UInt256 = token.vaultId
-			self.vaultToFractions[vaultId]!.add(id)
+			if self.vaultToFractions[vaultId] == nil {
+				self.vaultToFractions[vaultId] = EnumerableSet.UInt64Set()
+				self.vaultToFractions[vaultId]!.add(id)
+			} 
+			else {
+				self.vaultToFractions[vaultId]!.add(id)
+			}
 			// add the new token to the dictionary which removes the old one
 			let oldToken <- self.ownedNFTs[id] <- token
 
@@ -198,6 +203,7 @@ pub contract Fraction: NonFungibleToken {
 		}
 		self.count = self.count + 1
 		self.fractionSupply[self.count] = amount
+		PriceBook.addToSupply(vaultId, amount)
 		return <- newCollection
 	}
 

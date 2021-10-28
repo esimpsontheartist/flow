@@ -1,10 +1,10 @@
-import NonFungibleToken from "../../contracts/standard/NonFungibleToken.cdc"
-import WrappedCollection from "../../contracts/lib/WrappedCollection.cdc"
-import ExampleNFT from "../../contracts/lib/ExampleNFT.cdc"
+import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import WrappedCollection from "../../contracts/WrappedCollection.cdc"
+import ExampleNFT from "../../contracts/ExampleNFT.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 //Transaction to mint a new vault
-transaction(nftId: UInt64) {
+transaction(nftId: UInt64, fractionRecipient: Address) {
 
     // Reference to the vault account
     let vaultCollection: &{FractionalVault.VaultCollectionPublic}
@@ -14,6 +14,7 @@ transaction(nftId: UInt64) {
     
     //The user authorizes borrowing the transaction to borrow the collection
     prepare(account: AuthAccount) {
+        //Get reference to the vaultAddress' Fraction collection
         let vaultAddress = FractionalVault.vaultAddress
         self.vaultCollection = getAccount(vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
             ?? panic("Could not borrow a reference to the Fractional Vault Collection")
@@ -34,7 +35,7 @@ transaction(nftId: UInt64) {
         collection.depositWNFT(token: <- wrapped)
 
         //deposit the vault
-        self.vaultCollection.depositVault(vault: <- FractionalVault.mint(collection: <- collection))
+        self.vaultCollection.depositVault(vault: <- FractionalVault.mint(collection: <- collection, fractionRecipient: fractionRecipient))
     }
 }
 
