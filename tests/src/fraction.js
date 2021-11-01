@@ -85,18 +85,6 @@ export const getFractionCollectionIds = async (address) => {
 	return executeScript({ name, args });
 };
 
-/*
- * Returns an the total count of all fractions sets that have existed
- * @param none
- * @throws Will throw an error if execution will be halted
- * @returns {UInt256}
- * */
-export const getCount = async () => {
-	const name = "fraction/get_count";
-	const args = [];
-
-	return executeScript({ name, args });
-};
 
 /*
  * Returns an the total count of all fractions currently in existence for a given vaultId
@@ -105,7 +93,7 @@ export const getCount = async () => {
  * @returns {UInt256}
  * */
 export const getFractionSupply = async (vaultId) => {
-	const name = "fraction/get_count";
+	const name = "fraction/get_totalSupply";
 	const args = [vaultId];
 
 	return executeScript({ name, args });

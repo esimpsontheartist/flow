@@ -3,6 +3,7 @@ import { getVaultAdminAddress, getVaultAddress } from "./common";
 import { deployFraction } from "./fraction";
 
 
+
 // CONTRACT DEPLOYMENT
 
 /*
@@ -52,11 +53,25 @@ export const setupVaultOnAccount = async (account) => {
  * @returns {Promise<*>}
  * */
 export const mintVault = async (underlyingOwner, nftId, recipient) => {
-	const VaultAdmin = await getVaultAdminAddress();
 
 	const name = "vault/mint_vault";
 	const args = [nftId, recipient];
 	const signers = [underlyingOwner];
+
+	return sendTransaction({ name, args, signers, limit: 9999 });
+};
+
+/*
+ * Mints a fractional vault for a given set of NFTs (currently only working with ExampleNFT)
+ * @param {UInt64} nftId - the id for an NFT (currently only supports Example NFT)
+ * @throws Will throw an error if transaction is reverted.
+ * @returns {Promise<*>}
+ * */
+export const mintVaultFractions = async (signer, vaultId) => {
+
+	const name = "vault/mint_vaultFractions";
+	const args = [vaultId];
+	const signers = [signer];
 
 	return sendTransaction({ name, args, signers, limit: 9999 });
 };

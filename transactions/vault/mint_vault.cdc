@@ -6,18 +6,11 @@ import FractionalVault from "../../contracts/FractionalVault.cdc"
 //Transaction to mint a new vault
 transaction(nftId: UInt64, fractionRecipient: Address) {
 
-    // Reference to the vault account
-    let vaultCollection: &{FractionalVault.VaultCollectionPublic}
-    
     //An example NFT collection
     let collection: &ExampleNFT.Collection
     
     //The user authorizes borrowing the transaction to borrow the collection
     prepare(account: AuthAccount) {
-        //Get reference to the vaultAddress' Fraction collection
-        let vaultAddress = FractionalVault.vaultAddress
-        self.vaultCollection = getAccount(vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
-            ?? panic("Could not borrow a reference to the Fractional Vault Collection")
         self.collection = account.borrow<&ExampleNFT.Collection>(from: ExampleNFT.CollectionStoragePath) ?? panic("could not load collection")
     }
 
@@ -34,8 +27,7 @@ transaction(nftId: UInt64, fractionRecipient: Address) {
         let collection <- WrappedCollection.createEmptyCollection()
         collection.depositWNFT(token: <- wrapped)
 
-        //deposit the vault
-        self.vaultCollection.depositVault(vault: <- FractionalVault.mint(collection: <- collection, fractionRecipient: fractionRecipient))
+        FractionalVault.mintVault(collection: <- collection, fractionRecipient: fractionRecipient)
     }
 }
 

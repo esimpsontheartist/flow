@@ -1,4 +1,4 @@
-import { getAccountAddress } from "flow-js-testing";
+import { getAccountAddress, mintFlow } from "flow-js-testing";
 
 const UFIX64_PRECISION = 8;
 

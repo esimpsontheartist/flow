@@ -3,6 +3,7 @@ import path from "path";
 import { 
     emulator, 
     init,
+    mintFlow,
     getServiceAddress,
     deployContract,
     executeScript,
@@ -49,7 +50,8 @@ import {
     getFractionIds,
     getUnderlyingCollectionIds,
     getUnderlyingNFT,
-    getUnderlyingWNFT
+    getUnderlyingWNFT,
+    mintVaultFractions
 } from "../src/fractionalVault"
 
 // We need to set timeout for a higher number, because some transactions might take up some time
@@ -99,7 +101,6 @@ describe("FractionalVault", () => {
         const Bob = await getBobsAddress()
         await shallPass(setupExampleNFTOnAccount(Bob))
         await shallPass(mintExampleNFT(Bob, Bob))
-        let ids = await getExampleNFTCollectionIds(Bob)
 	});
 
     it("shall be able to mint a vault", async () => {
@@ -108,6 +109,8 @@ describe("FractionalVault", () => {
         const VaultAdmin = await getVaultAdminAddress()
 		await deployExampleNFT(VaultAdmin);
         const Bob = await getBobsAddress()
+        //Mint flow to Bob
+        await mintFlow(Bob, "10.0")
         await shallPass(setupExampleNFTOnAccount(Bob))
         await shallPass(mintExampleNFT(Bob, Bob))
         let ids = await getExampleNFTCollectionIds(Bob)
@@ -117,6 +120,13 @@ describe("FractionalVault", () => {
         await shallPass(setupFractionOnAccount(Bob))
         //Bob mints a vault
         await shallPass(mintVault(Bob, ids[0], Bob))
+        //Bob mints and the recipient (in this case, Bob himself) gets the fractions
+        let vaultCount = await getVaultCount()
+        console.log("VaultCount: ", vaultCount)
+        for(var i = 0; i < 100; i++) {
+            await shallPass(mintVaultFractions(Bob, vaultCount - 1))
+        }
+        await shallRevert(mintVaultFractions(Bob, vaultCount - 1))
         //Add expect(var).toBe()
 	});
 

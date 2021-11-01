@@ -10,9 +10,6 @@ pub contract Fraction: NonFungibleToken {
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
 
-	//Count variable for the number of different set of fractions that have been minted 
-	pub var count: UInt256
-
 	//Total supply for a given fraction id
 	pub let fractionSupply: {UInt256: UInt256}
 
@@ -67,15 +64,14 @@ pub contract Fraction: NonFungibleToken {
 		//Id to separate fractions by vault
 		pub let vaultId: UInt256
 
-        init(id: UInt64) {
+        init(id: UInt64, vaultId: UInt256) {
             self.id = id
-			self.vaultId = Fraction.count
+			self.vaultId = vaultId
         }
 
 		destroy() {
 			PriceBook.removeFromPrice(self.vaultId, 1, PriceBook.fractionPrices[self.vaultId]![self.uuid]!)
 			//remove from price because we are burning the NFT
-			Fraction.totalSupply = Fraction.totalSupply - 1
 			Fraction.fractionSupply[self.vaultId] = Fraction.fractionSupply[self.vaultId]! - 1
 			// update PriceBook
 			PriceBook.removeFromSupply(self.vaultId, 1)
@@ -192,17 +188,26 @@ pub contract Fraction: NonFungibleToken {
 	// function to mint a group of fractions corresponding to a vault
 	//change to acces(acount), pub now for to avoid getting anoid by the linter
 	pub fun mintFractions(amount: UInt256, vaultId: UInt256): @Collection {
+
+		pre {
+			self.fractionSupply[vaultId] ?? 0 as UInt256 < 10000 : "Vault cannot mint more fractions!"
+		}
+
 		let newCollection <- create Collection()
 
 		var i: UInt256 = 0 
 		while i < amount {
-			newCollection.deposit(token: <- create NFT(id: Fraction.totalSupply))
+			newCollection.deposit(token: <- create NFT(id: Fraction.totalSupply, vaultId: vaultId))
 			self.idToVault[self.totalSupply] = vaultId
 			self.totalSupply = self.totalSupply + 1
 			i = i + 1
 		}
-		self.count = self.count + 1
-		self.fractionSupply[self.count] = amount
+		if self.fractionSupply[vaultId] == nil {
+			self.fractionSupply[vaultId] = amount
+		} 
+		else {
+			self.fractionSupply[vaultId] = self.fractionSupply[vaultId]! + amount
+		}
 		PriceBook.addToSupply(vaultId, amount)
 		return <- newCollection
 	}
@@ -213,7 +218,6 @@ pub contract Fraction: NonFungibleToken {
 	}
 
     init() {
-		self.count = 0
         self.totalSupply = 0
 		self.fractionSupply = {}
 		self.idToVault = {}

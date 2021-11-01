@@ -204,6 +204,8 @@ pub contract FractionalVault {
         //Collection of the NFTs the user will fractionalize (UInt64 is meant to be the NFT's uuid)
         //change access control later
         access(contract) var underlying: @WrappedCollection.Collection
+        //address that can receive the fractions
+        access(contract) var recipient: Address?
 
         // Auction information// 
         pub var auctionEnd: UFix64?
@@ -229,6 +231,7 @@ pub contract FractionalVault {
             self.auctionEnd = nil
             self.livePrice = nil
             self.winning = nil
+            self.recipient = nil
             
             emit Initialized(id: id)
         }
@@ -248,6 +251,14 @@ pub contract FractionalVault {
 
         pub fun borrowCollection() : &{Fraction.CollectionPublic} {
             return &self.fractions as! auth &{Fraction.CollectionPublic}
+        }
+
+        pub fun getRecipient(): Address? {
+            return self.recipient
+        }
+
+        access(contract) fun setRecipient(_ recipient: Address){
+            self.recipient = recipient
         }
 
         access(contract) fun sendFlow(to: Address, value: UFix64) {
@@ -455,42 +466,59 @@ pub contract FractionalVault {
     /// @param collection the collection for the underlying set of NFTS
     /// @return the ID of the vault
     // CHANGE: remove the return and just mint directly to the address that will hold the vault
-    pub fun mint(collection: @WrappedCollection.Collection, fractionRecipient: Address): @FractionalVault.Vault {
+    pub fun mintVault(collection: @WrappedCollection.Collection, fractionRecipient: Address) {
 
-        var count = Fraction.count + 1
+        
         //Initialize a vault
-        let vault <- create Vault(id: Fraction.count)
+        let vault <- create Vault(id: self.vaultCount)
 
+        //set fractions recipient
+        vault.setRecipient(fractionRecipient)
         //collection must have an owner, otherwise this transaction will revert its execution
         let recipient = getAccount(fractionRecipient)
-
-        //mint the fractions
-        /**
-         * Optimize Enumberable Set
-         * Separate mint function into smaller cheaper functions
-         */
-        let fractions <- Fraction.mintFractions(amount: 500, vaultId: self.vaultCount)
-        assert(count == Fraction.count, message : "mismatch")
         
         emit Mint(underlyingOwner: recipient.address, vaultId: vault.id);
 
         //deposit the underlying NFTs to the Vault
         vault.depositCollection(<- collection)
+        
+        let vaultCollection = getAccount(self.vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
+        ?? panic("Could not borrow a reference to the Fractional Vault Collection")
+
+        vaultCollection.depositVault(vault: <- vault)
+
+        self.vaultCount =  self.vaultCount + 1
+    }
+
+    /// @notice the function to mint a new vault
+    /// @param collection the collection for the underlying set of NFTS
+    /// @return the ID of the vault
+    // CHANGE: access modifier
+    pub fun mintVaultFractions(vaultId: UInt256){
+        
+        //Get capability for the vault
+        let vaultCollection = getAccount(self.vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
+        ?? panic("Could not borrow a reference to the Fractional Vault Collection")
+
+        let vault = vaultCollection.borrowVault(id: vaultId)
+
+        //mint the fractions
+        /**
+         * Separate mint function into smaller cheaper functions
+         */
+        let fractions <- Fraction.mintFractions(amount: 100, vaultId: self.vaultCount)
 
         //capability to deposit fractions to the owner of the underlying NFT
-        let fractionCapability = recipient.getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
+        let recipient =  getAccount(vault!.recipient!)
+        let fractionCapability = recipient.getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() 
+        ?? panic("Could not borrow a reference to the account receiver")
         //Receive the underlying
         let fractionIds = fractions.getIDs()
         for fractionId in fractionIds {
             fractionCapability.deposit(token: <- fractions.withdraw(withdrawID: fractionId))
         }
-
-        self.vaultCount =  self.vaultCount + 1
-
         //destroy the fraction resources since they have been moved
         destroy fractions
-        //return the vault
-        return <- vault
     }
 
     init(vaultAddress: Address) {
