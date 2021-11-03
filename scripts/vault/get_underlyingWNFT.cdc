@@ -14,6 +14,7 @@ pub struct WNFT {
         self.address = address
         self.nftType = nftType
         self.collectionPath = collectionPath
+        //maybe change Type to String in order to use identifier
     }
 }
 // This scripts returns a reference to one of the NFTs in a vault's collection

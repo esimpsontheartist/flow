@@ -10,3 +10,5 @@ export const getVaultAdminAddress = async () => getAccountAddress("FractionalVau
 export const getVaultAddress = async () => getAccountAddress("FractionalVaultOwner");
 // Mock address for testing
 export const getBobsAddress = async () => getAccountAddress("Bob");
+// Mock secondary address for testing
+export const getAlicesAddress = async () => getAccountAddress("Alice");

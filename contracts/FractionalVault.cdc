@@ -5,9 +5,9 @@ import WrappedCollection from "./WrappedCollection.cdc"
 import PriceBook from "./PriceBook.cdc"
 import Fraction from "./Fraction.cdc"
 
+//////////////////////////////////////
+/// Fractional NFT Vault contract ///
 /////////////////////////////////////
-// Fractional NFT Vault contract ///
-////////////////////////////////////
 
 pub contract FractionalVault {
 
@@ -202,7 +202,6 @@ pub contract FractionalVault {
         //The collection for the fractions
         access(contract) var fractions: @Fraction.Collection
         //Collection of the NFTs the user will fractionalize (UInt64 is meant to be the NFT's uuid)
-        //change access control later
         access(contract) var underlying: @WrappedCollection.Collection
         //address that can receive the fractions
         access(contract) var recipient: Address?
@@ -421,7 +420,6 @@ pub contract FractionalVault {
         }
 
         // takes a vault and adds it to the vault dictionary
-        //change to access(account), pub now to avoid linter errrors
         pub fun depositVault(vault: @FractionalVault.Vault) {
             let vault <- vault 
 
@@ -457,7 +455,6 @@ pub contract FractionalVault {
     }
 
     //function that sets up a collection to hold the vault
-    // CHANGE TO: access(account)
     pub fun createEmptyCollection(): @FractionalVault.VaultCollection {
         return <- create VaultCollection()
     }
@@ -465,7 +462,6 @@ pub contract FractionalVault {
     /// @notice the function to mint a new vault
     /// @param collection the collection for the underlying set of NFTS
     /// @return the ID of the vault
-    // CHANGE: remove the return and just mint directly to the address that will hold the vault
     pub fun mintVault(collection: @WrappedCollection.Collection, fractionRecipient: Address) {
 
         
@@ -493,7 +489,7 @@ pub contract FractionalVault {
     /// @notice the function to mint a new vault
     /// @param collection the collection for the underlying set of NFTS
     /// @return the ID of the vault
-    // CHANGE: access modifier
+    //Change to access account before testnet deployment
     pub fun mintVaultFractions(vaultId: UInt256){
         
         //Get capability for the vault

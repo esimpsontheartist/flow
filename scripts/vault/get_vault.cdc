@@ -7,7 +7,7 @@ pub struct Vault {
   pub let auctionLength : UFix64
   pub let livePrice : UFix64?
   pub let winning : Address?
-  pub let auctionState : FractionalVault.State?
+  pub let auctionState : UInt8?
   pub let resourceID: UInt64
   pub let vaultAddress: Address //Address where the vault is stored
 
@@ -17,7 +17,7 @@ pub struct Vault {
       auctionLength: UFix64,
       livePrice: UFix64?,
       winning: Address?,
-      auctionState: FractionalVault.State?,
+      auctionState: UInt8?,
       resourceID: UInt64, 
       vaultAddress: Address
     ) {
@@ -44,7 +44,7 @@ pub fun main(vaultId: UInt256): Vault? {
                   auctionLength: vault.auctionLength,
                   livePrice: vault.livePrice,
                   winning: vault.winning,
-                  auctionState: vault.auctionState,
+                  auctionState: vault.auctionState!.rawValue,
                   resourceID: vault.uuid, 
                   vaultAddress: vaultAddress
                 )

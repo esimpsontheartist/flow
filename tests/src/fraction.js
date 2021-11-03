@@ -54,7 +54,7 @@ export const transferFractions = async (sender, recipient, withdrawIDs) => {
 	const args = [recipient, withdrawIDs];
 	const signers = [sender];
 
-	return sendTransaction({ name, args, signers });
+	return sendTransaction({ name, args, signers, limit: 9999});
 };
 
 // SCRIPTS
@@ -93,7 +93,7 @@ export const getFractionCollectionIds = async (address) => {
  * @returns {UInt256}
  * */
 export const getFractionSupply = async (vaultId) => {
-	const name = "fraction/get_totalSupply";
+	const name = "fraction/get_fraction_supply";
 	const args = [vaultId];
 
 	return executeScript({ name, args });

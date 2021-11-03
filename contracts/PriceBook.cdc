@@ -12,14 +12,12 @@ import EnumerableSet from "./EnumerableSet.cdc"
     pub let fractionSupply: {UInt256: UInt256}
     
     // A function to decrease supply in the mapping
-    // CHANGE TO ACCESS ACCOUNT SO THAT ONLY FRACTION.CDC can call the function
-    pub fun removeFromSupply(_ vaultId: UInt256, _ amount: UInt256) {
+    access(account) fun removeFromSupply(_ vaultId: UInt256, _ amount: UInt256) {
         self.fractionSupply[vaultId] = self.fractionSupply[vaultId]! - amount
     }
     
     // A function to increase the supply in the mapping
-    // CHANGE TO ACCESS ACCOUNT SO THAT ONLY FRACTION.CDC can call the function
-    pub fun addToSupply(_ vaultId: UInt256, _ amount: UInt256) {
+     access(account) fun addToSupply(_ vaultId: UInt256, _ amount: UInt256) {
         if self.fractionSupply[vaultId] == nil {
             self.fractionSupply[vaultId] = amount
         } else {
@@ -38,7 +36,6 @@ import EnumerableSet from "./EnumerableSet.cdc"
     }
 
     //Vault information//
-    //CHANGE PRICES TO ACCOUNT ACCESS
     //Array of prices with more than 1% voting for them by vaultId
     pub let prices: {UInt256: EnumerableSet.UFix64Set}
     //All prices and the number voting for them
@@ -48,8 +45,7 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
     // add to a price count
     // add price to reserve calc if 1% are voting for it
-    //TODO: CHANGE TO access(account)
-    pub fun addToPrice(_ vaultId: UInt256, _ amount: UInt256, _ price: UFix64) {
+    access(account) fun addToPrice(_ vaultId: UInt256, _ amount: UInt256, _ price: UFix64) {
         let nested = self.priceToCount[vaultId] ?? {}
         nested[price] = nested[price]! + amount
         self.priceToCount[vaultId] = nested
@@ -61,8 +57,7 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
     // remove a price count
     // remove price from reserve calc if less than 1% are voting for it
-    //TODO: CHANGE TO access(account) so that the Fraction contract can remove bids when fractions are burned
-    pub fun removeFromPrice(_ vaultId: UInt256, _ amount: UInt256, _ oldPrice: UFix64) {
+    access(account) fun removeFromPrice(_ vaultId: UInt256, _ amount: UInt256, _ oldPrice: UFix64) {
         let nested = self.priceToCount[vaultId] ?? {}
         nested[oldPrice] = nested[oldPrice]! - amount
         self.priceToCount[vaultId] = nested

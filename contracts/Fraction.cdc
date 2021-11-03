@@ -180,14 +180,12 @@ pub contract Fraction: NonFungibleToken {
 		return <- create Collection()
 	}
 	
-	//Might wat to restrict access to this function
 	pub fun createEmptyFractionCollection(): @Fraction.Collection {
 		return <- create Collection()
 	}
 
 	// function to mint a group of fractions corresponding to a vault
-	//change to acces(acount), pub now for to avoid getting anoid by the linter
-	pub fun mintFractions(amount: UInt256, vaultId: UInt256): @Collection {
+	access(account) fun mintFractions(amount: UInt256, vaultId: UInt256): @Collection {
 
 		pre {
 			self.fractionSupply[vaultId] ?? 0 as UInt256 < 10000 : "Vault cannot mint more fractions!"

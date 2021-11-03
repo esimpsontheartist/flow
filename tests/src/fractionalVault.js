@@ -52,10 +52,10 @@ export const setupVaultOnAccount = async (account) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const mintVault = async (underlyingOwner, nftId, recipient) => {
+export const mintVault = async (underlyingOwner, nftIds, recipient) => {
 
 	const name = "vault/mint_vault";
-	const args = [nftId, recipient];
+	const args = [nftIds, recipient];
 	const signers = [underlyingOwner];
 
 	return sendTransaction({ name, args, signers, limit: 9999 });
@@ -213,7 +213,7 @@ export const getVaultCount = async () => {
  * }
  * */
 export const getVault = async (vaultId) => {
-	const name = "vault/get_underlyingVault";
+	const name = "vault/get_vault";
 	const args = [vaultId];
 
 	return executeScript({ name, args });
@@ -272,7 +272,7 @@ export const getUnderlyingCollectionIds = async (vaultId) => {
  * }
  * */
 export const getUnderlyingNFT = async (vaultId, itemUUID) => {
-	const name = "vault/get_underlyingCollectionIds";
+	const name = "vault/get_underlyingNFT";
 	const args = [vaultId, itemUUID];
 
 	return executeScript({ name, args });
