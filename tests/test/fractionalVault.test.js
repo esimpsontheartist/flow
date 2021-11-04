@@ -552,6 +552,82 @@ describe("FractionalVault", () => {
 
 	});
 
+    it("should be able to start an auction", async () => {
+		// Setup
+		await deployFractionalVault();
+        const VaultAdmin = await getVaultAdminAddress()
+		await deployExampleNFT(VaultAdmin);
+        const Bob = await getBobsAddress()
+        //Mint flow to Bob
+        await mintFlow(Bob, "10.0")
+        await shallPass(setupExampleNFTOnAccount(Bob))
+        await shallPass(mintExampleNFT(Bob, Bob))
+        let ids = await getExampleNFTCollectionIds(Bob)
+        const VaultAddress = await getVaultAddress()
+        await shallPass(setupVaultOnAccount(VaultAddress));
+        //setup fraction collection
+        await shallPass(setupFractionOnAccount(Bob))
+        //Bob mints a vault
+        await shallPass(mintVault(Bob, ids, Bob))
+        let vaultCount = await getVaultCount()
+        expect(vaultCount).toBe(1)
+
+        for(var i = 0; i < 100; i++) {
+            await shallPass(mintVaultFractions(VaultAdmin, vaultCount - 1))
+        }
+        //Tying to mint after 10k fractions will revert
+        await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
+        
+        /** Checking contract variables/info */
+        //Get total supply
+        const totalSupply = await getTotalSupply()
+        expect(totalSupply).toBe(10000)
+        //get fraction supply
+        const totalFractionSupply = await getFractionSupply(vaultCount)
+        expect(totalFractionSupply).toBe(10000)
+        //get collection balance
+        const collectionBalance = await getCollectionBalance(Bob)
+        expect(collectionBalance).toBe(10000)
+        //get collection ids
+        const collectionids = await getFractionCollectionIds(Bob)
+        for(var i = 0; i < 10000; i++) {
+            expect(collectionids[i]).toBe(i)
+        }
+        
+        /**Checking scripts to query the vault */
+        //get the vault
+        const vault = await getVault(vaultCount - 1)
+        expect(vault.vaultId).toBe(0)
+        expect(vault.auctionEnd).toBe(null)
+        expect(vault.auctionLength).toBe("172800.00000000")
+        expect(vault.livePrice).toBe(null)
+        expect(vault.winning).toBe(null)
+        expect(vault.auctionState).toBe(0)
+        expect(vault.resourceID).toBe(41)
+        expect(vault.vaultAddress).toBe('0x179b6b1cb6755e31')
+        //console.log("Vault: ", vault)
+        //getunderlying collection ids
+        const underlyingIds = await getUnderlyingCollectionIds(vaultCount - 1)
+        //resource id that is assigned to the NFT
+        expect(underlyingIds.length).toBe(1)
+        //console.log("Underlying NFT ids: ", underlyingIds)
+        //get fraction ids
+        const fractionIds = await getFractionIds(vaultCount - 1)
+        //console.log("Fraction Ids:", fractionIds)
+        expect(fractionIds.length).toBe(0)
+        //get underlying WNFT
+        const wnft = await getUnderlyingWNFT(vaultCount - 1, underlyingIds[0])
+        expect(wnft.id).toBe(0)
+        expect(wnft.address).toBe(Bob)
+        //console.log("Bob", Bob)
+        //console.log("WNFT: ", wnft)
+        //get underlying NFT
+        const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
+        expect(nft.id).toBe(0)
+        //console.log("NFT: ", nft)
+
+	});
+
     // Vaults auction functionality
     
     //Look at core contracts for other things I should test
