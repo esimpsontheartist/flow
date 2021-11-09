@@ -10,6 +10,9 @@ import EnumerableSet from "./EnumerableSet.cdc"
     // Fraction Information
     // Fraction supply by Vault Id
     pub let fractionSupply: {UInt256: UInt256}
+
+    
+    pub event Prices(prices: [UFix64])
     
     // A function to decrease supply in the mapping
     access(account) fun removeFromSupply(_ vaultId: UInt256, _ amount: UInt256) {
@@ -35,6 +38,7 @@ import EnumerableSet from "./EnumerableSet.cdc"
         }
     }
 
+
     //Vault information//
     //Array of prices with more than 1% voting for them by vaultId
     pub let prices: {UInt256: EnumerableSet.UFix64Set}
@@ -47,9 +51,20 @@ import EnumerableSet from "./EnumerableSet.cdc"
     // add price to reserve calc if 1% are voting for it
     access(account) fun addToPrice(_ vaultId: UInt256, _ amount: UInt256, _ price: UFix64) {
         let nested = self.priceToCount[vaultId] ?? {}
-        nested[price] = nested[price]! + amount
+        //forcing optional value below leads to an error
+        if nested[price] == nil {
+            nested[price] = amount
+        } 
+        else {
+            nested[price] = nested[price]! + amount
+        }
+        
         self.priceToCount[vaultId] = nested
-        //TODO: Check the math adds up
+
+        if self.prices[vaultId] == nil {
+            self.prices.insert(key: vaultId, EnumerableSet.UFix64Set())
+        }
+        
         if self.priceToCount[vaultId]![price]! * 100 >= self.fractionSupply[vaultId]! && !self.prices[vaultId]!.contains(price) {
             self.prices[vaultId]!.add(price)
         }
@@ -59,11 +74,23 @@ import EnumerableSet from "./EnumerableSet.cdc"
     // remove price from reserve calc if less than 1% are voting for it
     access(account) fun removeFromPrice(_ vaultId: UInt256, _ amount: UInt256, _ oldPrice: UFix64) {
         let nested = self.priceToCount[vaultId] ?? {}
-        nested[oldPrice] = nested[oldPrice]! - amount
+        
+        if nested[oldPrice] == nil {
+            nested[oldPrice] = amount
+        } 
+        else {
+            nested[oldPrice] = nested[oldPrice]! - amount
+        }
+
         self.priceToCount[vaultId] = nested
-        //TODO: Check the math adds up
-        if self.priceToCount[vaultId]![oldPrice]! * 100 < self.fractionSupply[vaultId]! && !self.prices[vaultId]!.contains(oldPrice) {
+
+        if self.prices[vaultId] == nil {
+            return
+        }
+
+        if self.priceToCount[vaultId]![oldPrice]! * 100 < self.fractionSupply[vaultId]! && self.prices[vaultId]!.contains(oldPrice) {
             self.prices[vaultId]!.remove(oldPrice)
+            
         }
     }
 
@@ -112,13 +139,16 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
     pub fun reservePrice(_ vaultId: UInt256): ReserveInfo {
 
-        var tempPrices = self.prices[vaultId]!.values()
-        tempPrices = self.sort(tempPrices)
+        var tempPrices: [UFix64]? = self.prices[vaultId]?.values()
+        if tempPrices == nil {
+            tempPrices = []
+        }
+        tempPrices = self.sort(tempPrices!)
         var voting: UInt256 = 0
         var x: Int = 0
-        while x < tempPrices.length {   
-            if tempPrices[x] != 0.0 {
-                voting = voting + self.priceToCount[vaultId]![tempPrices[x]]!
+        while x < tempPrices!.length {   
+            if tempPrices![x] != nil {
+                voting = voting + self.priceToCount[vaultId]![tempPrices![x]]!
             }
             x = x + 1
         }
@@ -126,15 +156,16 @@ import EnumerableSet from "./EnumerableSet.cdc"
         var reserve = 0.0 
         var count: UInt256 = 0
         var y = 0
-        while y < tempPrices.length {
-            if tempPrices[y] != 0.0 {
-                count = count + self.priceToCount[vaultId]![tempPrices[y]]!
+        while y < tempPrices!.length {
+            if tempPrices![y] != nil {
+                count = count + self.priceToCount[vaultId]![tempPrices![y]]!
             }
             if count * 2 >= voting {
-                reserve = tempPrices[y]
+                reserve = tempPrices![y]
                 break
             }
         }
+        
         return ReserveInfo(voting, reserve)
     }
 

@@ -60,6 +60,33 @@ export const transferFractions = async (sender, recipient, withdrawIDs) => {
 // SCRIPTS
 
 /*
+ * Returns a Fraction given an ID
+ * @param none
+ * @throws Will throw an error if execution will be halted
+ * @returns {Fraction}
+ * */
+export const getFraction = async (address, id) => {
+	const name = "fraction/get_fraction";
+	const args = [address, id];
+
+	return executeScript({ name, args });
+};
+
+/*
+ * Returns a Fraction given an ID
+ * @param none
+ * @throws Will throw an error if execution will be halted
+ * @returns {Fraction}
+ * */
+export const getFractionsByVault = async (address, vaultId) => {
+	const name = "fraction/get_fractions_by_vault";
+	const args = [address, vaultId];
+
+	return executeScript({ name, args });
+};
+
+
+/*
  * Returns the number of fractions owned by an account (exclusive of vaultId)
  * @param {Address} - address
  * @throws Will throw an error if execution will be halted
@@ -99,19 +126,6 @@ export const getFractionSupply = async (vaultId) => {
 	return executeScript({ name, args });
 };
 
-/*
- * Returns an array with all the fraction ids owned by an account given a vaultId
- * @param {Address} - address
- * @param {UInt256} - vaultId
- * @throws Will throw an error if execution will be halted
- * @returns {[UInt64]}
- * */
-export const getFractionsByVault = async (address, vaultId) => {
-	const name = "fraction/get_collection_ids";
-	const args = [address, vaultId];
-
-	return executeScript({ name, args });
-};
 
 /*
  * Returns an the total supply of all fractions currently in existance
@@ -125,3 +139,4 @@ export const getTotalSupply = async () => {
 
 	return executeScript({ name, args });
 };
+

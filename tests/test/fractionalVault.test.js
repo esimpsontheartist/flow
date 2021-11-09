@@ -22,7 +22,8 @@ import {
     getCount,
     getFractionSupply,
     getFractionsByVault,
-    getTotalSupply
+    getTotalSupply,
+    getFraction
 
 } from "../src/fraction"
 import { 
@@ -51,7 +52,8 @@ import {
     getUnderlyingCollectionIds,
     getUnderlyingNFT,
     getUnderlyingWNFT,
-    mintVaultFractions
+    mintVaultFractions,
+    getReserveInfo
 } from "../src/fractionalVault"
 
 // We need to set timeout for a higher number, because some transactions might take up some time
@@ -62,19 +64,19 @@ describe("FractionalVault", () => {
     // Instantiate emulator and path to Cadence files
 	beforeEach(async () => {
 		const basePath = path.resolve(__dirname, "../../");
-		const port = 7001;
-		await init(basePath, { port });
-		return emulator.start(port, false);
+		//const port = 7001;
+		await init(basePath, { port: 8080 });
+		//return emulator.start(port, false);
 	});
 
     // Stop emulator, so it could be restarted
-	afterEach(async () => {
+	/*afterEach(async () => {
 		return emulator.stop();
-	});
+	});*/
 
     //Common Functionality
 
-    it("shoukd deploy FractionalVault contract", async () => {
+    /*it("should deploy FractionalVault contract", async () => {
 		await deployFractionalVault();
 	});
 
@@ -128,12 +130,11 @@ describe("FractionalVault", () => {
         //Tying to mint after 10k fractions will revert
         await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
         
-        /** Checking contract variables/info */
         //Get total supply
         const totalSupply = await getTotalSupply()
         expect(totalSupply).toBe(10000)
         //get fraction supply
-        const totalFractionSupply = await getFractionSupply(vaultCount)
+        const totalFractionSupply = await getFractionSupply(vaultCount - 1)
         expect(totalFractionSupply).toBe(10000)
         //get collection balance
         const collectionBalance = await getCollectionBalance(Bob)
@@ -144,7 +145,6 @@ describe("FractionalVault", () => {
             expect(collectionids[i]).toBe(i)
         }
         
-        /**Checking scripts to query the vault */
         //get the vault
         const vault = await getVault(vaultCount - 1)
         expect(vault.vaultId).toBe(0)
@@ -205,12 +205,11 @@ describe("FractionalVault", () => {
         //Tying to mint after 10k fractions will revert
         await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
         
-        /** Checking contract variables/info */
         //Get total supply
         let totalSupply = await getTotalSupply()
         expect(totalSupply).toBe(10000)
         //get fraction supply
-        let totalFractionSupply = await getFractionSupply(vaultCount)
+        let totalFractionSupply = await getFractionSupply(vaultCount - 1)
         expect(totalFractionSupply).toBe(10000)
         //get collection balance
         let collectionBalance = await getCollectionBalance(Bob)
@@ -221,7 +220,6 @@ describe("FractionalVault", () => {
             expect(collectionids[i]).toBe(i)
         }
         
-        /**Checking scripts to query the vault */
         //get the vault
         const vault = await getVault(vaultCount - 1)
         expect(vault.vaultId).toBe(0)
@@ -253,7 +251,6 @@ describe("FractionalVault", () => {
         expect(nft.id).toBe(0)
         //console.log("NFT: ", nft)
 
-        /**Mint a 2nd Vault */
         await shallPass(mintExampleNFT(Bob, Bob))
         ids = await getExampleNFTCollectionIds(Bob)
 
@@ -268,12 +265,11 @@ describe("FractionalVault", () => {
         //Tying to mint after 10k fractions will revert
         await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
 
-        /** Checking contract variables/info */
         //Get total supply
         totalSupply = await getTotalSupply()
         expect(totalSupply).toBe(20000)
         //get fraction supply
-        totalFractionSupply = await getFractionSupply(vaultCount)
+        totalFractionSupply = await getFractionSupply(vaultCount - 1)
         expect(totalFractionSupply).toBe(10000)
         //get collection balance
         collectionBalance = await getCollectionBalance(Bob)
@@ -343,12 +339,11 @@ describe("FractionalVault", () => {
         //Tying to mint after 10k fractions will revert
         await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
         
-        /** Checking contract variables/info */
         //Get total supply
         let totalSupply = await getTotalSupply()
         expect(totalSupply).toBe(10000)
         //get fraction supply
-        let totalFractionSupply = await getFractionSupply(vaultCount)
+        let totalFractionSupply = await getFractionSupply(vaultCount - 1)
         expect(totalFractionSupply).toBe(10000)
         //get collection balance
         let collectionBalance = await getCollectionBalance(Bob)
@@ -359,7 +354,6 @@ describe("FractionalVault", () => {
             expect(collectionids[i]).toBe(i)
         }
         
-        /**Checking scripts to query the vault */
         //get the vault
         const vault = await getVault(vaultCount - 1)
         expect(vault.vaultId).toBe(0)
@@ -391,7 +385,6 @@ describe("FractionalVault", () => {
         expect(nft.id).toBe(0)
         //console.log("NFT: ", nft)
 
-        /**Mint a 2nd Vault */
         const Alice = await getAlicesAddress()
         //Mint flow to Bob
         await mintFlow(Alice, "10.0")
@@ -412,12 +405,11 @@ describe("FractionalVault", () => {
         //Tying to mint after 10k fractions will revert
         await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
 
-        /** Checking contract variables/info */
         //Get total supply
         totalSupply = await getTotalSupply()
         expect(totalSupply).toBe(20000)
         //get fraction supply
-        totalFractionSupply = await getFractionSupply(vaultCount)
+        totalFractionSupply = await getFractionSupply(vaultCount - 1)
         expect(totalFractionSupply).toBe(10000)
         //get alicecollection balance
         let alicesCollectionBalance = await getCollectionBalance(Alice)
@@ -470,7 +462,7 @@ describe("FractionalVault", () => {
 	});
 
     //minting a vault with multiple nfts
-    /**THIS DOES NOT GAURANTEE NFTS OF DIFFERENT COLLECTIONS CAN BE DEPOSITED AT THE SAME TIME */
+    //THIS DOES NOT GAURANTEE NFTS OF DIFFERENT COLLECTIONS CAN BE DEPOSITED AT THE SAME TIME 
     it("should be able to mint a vault with multiple NFTs", async () => {
 		// Setup
 		await deployFractionalVault();
@@ -500,12 +492,11 @@ describe("FractionalVault", () => {
         //Tying to mint after 10k fractions will revert
         await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
         
-        /** Checking contract variables/info */
         //Get total supply
         const totalSupply = await getTotalSupply()
         expect(totalSupply).toBe(10000)
         //get fraction supply
-        const totalFractionSupply = await getFractionSupply(vaultCount)
+        const totalFractionSupply = await getFractionSupply(vaultCount - 1)
         expect(totalFractionSupply).toBe(10000)
         //get collection balance
         const collectionBalance = await getCollectionBalance(Bob)
@@ -516,7 +507,6 @@ describe("FractionalVault", () => {
             expect(collectionids[i]).toBe(i)
         }
         
-        /**Checking scripts to query the vault */
         //get the vault
         const vault = await getVault(vaultCount - 1)
         expect(vault.vaultId).toBe(0)
@@ -550,8 +540,9 @@ describe("FractionalVault", () => {
         expect(nft.id).toBe(0)
         expect(nft2.id).toBe(1)
 
-	});
+	});*/
 
+    // Vaults auction functionality
     it("should be able to start an auction", async () => {
 		// Setup
 		await deployFractionalVault();
@@ -583,7 +574,7 @@ describe("FractionalVault", () => {
         const totalSupply = await getTotalSupply()
         expect(totalSupply).toBe(10000)
         //get fraction supply
-        const totalFractionSupply = await getFractionSupply(vaultCount)
+        const totalFractionSupply = await getFractionSupply(vaultCount - 1)
         expect(totalFractionSupply).toBe(10000)
         //get collection balance
         const collectionBalance = await getCollectionBalance(Bob)
@@ -626,9 +617,34 @@ describe("FractionalVault", () => {
         expect(nft.id).toBe(0)
         //console.log("NFT: ", nft)
 
+        //Get reserve info
+        let reserveInfo = await getReserveInfo(vaultCount - 1)
+        console.log("Reserve Info: ", reserveInfo)
+        //Can update price
+        //emulator.setLogging(true);
+
+        let collectionIds = await getFractionCollectionIds(Bob)
+        console.log("Collection Ids: ", collectionIds)
+
+        let tx =  await updatePrice(Bob, vaultCount - 1, 100, 100)
+
+        console.log("Tx: ", tx)
+        
+        console.log("Tx Data: ", tx.events[0].data)
+
+        reserveInfo = await getReserveInfo(vaultCount - 1)
+        console.log("Reserve Info: ", reserveInfo)
+
+        //emulator.setLogging(false);
+        
+        //Transfer some fractions from Bob to Alice
+
 	});
 
-    // Vaults auction functionality
+    
+    /** TEST COMPTUATIONAL LIMITS FOR AUCTION FUNCTIONS */
+
+    /** ADD PRE AND POST CHECKS TO CONTRACTS */
     
     //Look at core contracts for other things I should test
 

@@ -172,13 +172,13 @@ export const redeem = async (signer, vaultId) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const updatePrice = async (signer, vaultId, newPrice) => {
+export const updatePrice = async (signer, vaultId, amount, newPrice) => {
 
 	const name = "vault/update_price";
-	const args = [vaultId, newPrice]
+	const args = [vaultId, newPrice, amount]
 	const signers = [signer]
 
-	return sendTransaction({ name, args, signers })
+	return sendTransaction({ name, args, signers, limit: 9999 })
 }
 
 // SCRIPTS
@@ -309,7 +309,7 @@ export const getUnderlyingWNFT = async (vaultId, itemUUID) => {
  * }
  * */
 export const getReserveInfo = async (vaultId) => {
-	const name = "priceBook/get_resereverInfo";
+	const name = "priceBook/get_reserveInfo";
 	const args = [vaultId];
 
 	return executeScript({ name, args });

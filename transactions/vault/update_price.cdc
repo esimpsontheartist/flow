@@ -3,7 +3,7 @@ import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 // Transaction to update the bid for a set of fractions
 
-transaction(vaultId: UInt256, newPrice: UFix64) {
+transaction(vaultId: UInt256, amount: UInt256, newPrice: UFix64) {
 
     let fractions: &Fraction.Collection
     
@@ -12,6 +12,6 @@ transaction(vaultId: UInt256, newPrice: UFix64) {
     }
 
     execute {
-        FractionalVault.updateFractionPrice(vaultId, collection: self.fractions, new: newPrice)
+        FractionalVault.updateFractionPrice(vaultId, collection: self.fractions, amount: amount, new: newPrice)
     }
 }

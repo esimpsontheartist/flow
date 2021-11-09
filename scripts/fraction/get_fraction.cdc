@@ -17,9 +17,8 @@ pub struct AccountItem {
 
 pub fun main(address: Address, itemID: UInt64): AccountItem? {
   if let collection = getAccount(address).getCapability<&Fraction.Collection{NonFungibleToken.CollectionPublic, Fraction.CollectionPublic}>(Fraction.CollectionPublicPath).borrow() {
-    if let item = collection.borrowFraction(id: itemID) {
-      return AccountItem(itemID: itemID, vaultId: item.vaultId, resourceID: item.uuid, owner: address)
-    }
+    let item = collection.borrowFraction(id: itemID) 
+    return AccountItem(itemID: itemID, vaultId: item!.vaultId, resourceID: item!.uuid, owner: address)
   }
 
   return nil

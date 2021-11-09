@@ -83,25 +83,45 @@ pub contract FractionalVault {
     pub event Initialized(id: UInt256)
 
     //check that the argument is the right type of capbility (restriced vs non-restriced)
-    pub fun updateFractionPrice(_ vaultId: UInt256, collection: &Fraction.Collection, new: UFix64) {
+    pub fun updateFractionPrice(_ vaultId: UInt256, collection: &Fraction.Collection, amount: UInt256, new: UFix64) {
 
         let fractionsOwner = collection.owner?.address!
 
+        //length is 0 for some reason
         let fractionIds = collection.vaultToFractions[vaultId]!.values()
 
         if fractionIds.length == 0 {
+            emit PriceUpdate(fractionsOwner: fractionsOwner, price: 0.0)
             return
         }
 
-        PriceBook.addToPrice(vaultId, collection.vaultToFractions[vaultId]!.length(), new)
+        var i: UInt256 = 0
+        let fractions: [UInt64] = []
+        while i < amount {
+            let value = fractionIds[i]
+            fractions.append(value)
+            i = i + 1
+        }
+
+        PriceBook.addToPrice(vaultId, UInt256(fractions.length), new)
 
         //Update the price for fractionsPrices and remove old prices
-        for id in fractionIds {
+        for id in fractions {
             let fraction = collection.borrowFraction(id: id)
             let uuid = fraction!.uuid
-            PriceBook.removeFromPrice(vaultId, 1, PriceBook.fractionPrices[vaultId]![uuid]!)
+            log("(PriceBook.fractionPrices[vaultId]")
+            log(PriceBook.fractionPrices[vaultId])
             let nested = PriceBook.fractionPrices[vaultId] ?? {}
+            log("nested: ")
+            log(nested)
+            log("nested length: ")
+            log(nested.length)
+            if nested[uuid] != nil {
+                PriceBook.removeFromPrice(vaultId, 1, nested[uuid]!)
+            }   
             nested[uuid] = new
+            log("new")
+            log(new)
             PriceBook.fractionPrices[vaultId] = nested
         }
         
@@ -122,7 +142,7 @@ pub contract FractionalVault {
         //Collection of the NFTs the user will fractionalize (UInt64 is meant to be the NFT's uuid)
         access(contract) var underlying: @WrappedCollection.Collection
         //address that can receive the fractions
-        access(contract) var recipient: Address?
+        access(contract) var curator: Address?
 
         // Auction information// 
         pub var auctionEnd: UFix64?
@@ -148,7 +168,7 @@ pub contract FractionalVault {
             self.auctionEnd = nil
             self.livePrice = nil
             self.winning = nil
-            self.recipient = nil
+            self.curator = nil
             
             emit Initialized(id: id)
         }
@@ -170,12 +190,12 @@ pub contract FractionalVault {
             return &self.fractions as! auth &{Fraction.CollectionPublic}
         }
 
-        pub fun getRecipient(): Address? {
-            return self.recipient
+        pub fun getcurator(): Address? {
+            return self.curator
         }
 
-        access(contract) fun setRecipient(_ recipient: Address){
-            self.recipient = recipient
+        access(contract) fun setCurator(_ curator: Address){
+            self.curator = curator
         }
 
         access(contract) fun sendFlow(to: Address, value: UFix64) {
@@ -285,7 +305,6 @@ pub contract FractionalVault {
         pub fun cash(_ collection: @NonFungibleToken.Collection) {
             pre {
                 self.auctionState == State.ended : "cash:vault not closed yet"
-                
             }
 
             let fractions <- collection as! @Fraction.Collection
@@ -380,18 +399,18 @@ pub contract FractionalVault {
     /// @notice the function to mint a new vault
     /// @param collection the collection for the underlying set of NFTS
     /// @return the ID of the vault
-    pub fun mintVault(collection: @WrappedCollection.Collection, fractionRecipient: Address) {
+    pub fun mintVault(collection: @WrappedCollection.Collection, fractionCurator: Address) {
 
         
         //Initialize a vault
         let vault <- create Vault(id: self.vaultCount)
 
-        //set fractions recipient
-        vault.setRecipient(fractionRecipient)
+        //set fractions Curator
+        vault.setCurator(fractionCurator)
         //collection must have an owner, otherwise this transaction will revert its execution
-        let recipient = getAccount(fractionRecipient)
+        let curator = getAccount(fractionCurator)
         
-        emit Mint(underlyingOwner: recipient.address, vaultId: vault.id);
+        emit Mint(underlyingOwner: curator.address, vaultId: vault.id);
 
         //deposit the underlying NFTs to the Vault
         vault.depositCollection(<- collection)
@@ -420,11 +439,11 @@ pub contract FractionalVault {
         /**
          * Separate mint function into smaller cheaper functions
          */
-        let fractions <- Fraction.mintFractions(amount: 100, vaultId: self.vaultCount)
+        let fractions <- Fraction.mintFractions(amount: 100, vaultId: self.vaultCount - 1)
 
         //capability to deposit fractions to the owner of the underlying NFT
-        let recipient =  getAccount(vault!.recipient!)
-        let fractionCapability = recipient.getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() 
+        let curator =  getAccount(vault!.curator!)
+        let fractionCapability = curator.getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() 
         ?? panic("Could not borrow a reference to the account receiver")
         //Receive the underlying
         let fractionIds = fractions.getIDs()

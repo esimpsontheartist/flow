@@ -4,7 +4,7 @@ import ExampleNFT from "../../contracts/ExampleNFT.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 //Transaction to mint a new vault
-transaction(nftIds: [UInt64], fractionRecipient: Address) {
+transaction(nftIds: [UInt64], fractionCurator: Address) {
 
     //An example NFT collection
     let collection: &ExampleNFT.Collection
@@ -32,7 +32,7 @@ transaction(nftIds: [UInt64], fractionRecipient: Address) {
         }
         
 
-        FractionalVault.mintVault(collection: <- collection, fractionRecipient: fractionRecipient)
+        FractionalVault.mintVault(collection: <- collection, fractionCurator: fractionCurator)
     }
 }
 

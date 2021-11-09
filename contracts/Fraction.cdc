@@ -106,7 +106,7 @@ pub contract Fraction: NonFungibleToken {
 		pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
 			let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 			let vaultId = Fraction.idToVault[token.id]!
-			self.vaultToFractions[vaultId]!.remove(token.id)
+			self.vaultToFractions[vaultId]?.remove(token.id)
 			emit Withdraw(id: token.id, from: self.owner?.address)
 
 			return <-token
@@ -120,12 +120,10 @@ pub contract Fraction: NonFungibleToken {
 			let id: UInt64 = token.id
 			let vaultId: UInt256 = token.vaultId
 			if self.vaultToFractions[vaultId] == nil {
-				self.vaultToFractions[vaultId] = EnumerableSet.UInt64Set()
-				self.vaultToFractions[vaultId]!.add(id)
+				self.vaultToFractions.insert(key: vaultId, EnumerableSet.UInt64Set())
 			} 
-			else {
-				self.vaultToFractions[vaultId]!.add(id)
-			}
+
+			self.vaultToFractions[vaultId]?.add(id)
 			// add the new token to the dictionary which removes the old one
 			let oldToken <- self.ownedNFTs[id] <- token
 
