@@ -4,6 +4,7 @@ import NonFungibleToken from "./NonFungibleToken.cdc"
 import WrappedCollection from "./WrappedCollection.cdc"
 import PriceBook from "./PriceBook.cdc"
 import Fraction from "./Fraction.cdc"
+import Clock from "./Clock.cdc"
 
 //////////////////////////////////////
 /// Fractional NFT Vault contract ///
@@ -24,22 +25,20 @@ pub contract FractionalVault {
     pub let VaultStoragePath: StoragePath
 	pub let VaultPublicPath: PublicPath
 
-     //Vault settings (NEEDS A CLEANUP)
+    //Vault settings (NEEDS A CLEANUP)
     pub struct Settings {
-        pub var feeReceiver: Address? // the address that receives auction fees
+        pub var feeReceiver: Capability<&{FungibleToken.Receiver}>? // the address that receives auction fees
 
             //need to set the right initial values
             init() {
             self.feeReceiver = nil
         }
 
-        access(account) fun setFeeReceiver(receiver: Address) {
-            //Research: what is the 0 address in Cadence?
-            //CHANGE THIS
+        access(account) fun setFeeReceiver(receiver: Capability<&{FungibleToken.Receiver}>) {
             pre {
-                receiver != 0x0: "fees cannot go to 0 address"
+                receiver != nil: "fees cannot go to nil capability"
             }
-            emit UpdateFeeReceiver(old: self.feeReceiver!, new: receiver)
+            emit UpdateFeeReceiver(old: self.feeReceiver!.address, new: receiver.address)
             self.feeReceiver = receiver
         }
 
@@ -84,22 +83,22 @@ pub contract FractionalVault {
     pub event Initialized(id: UInt256)
 
     //check that the argument is the right type of capbility (restriced vs non-restriced)
-    pub fun updateFractionPrice(_ vaultId: UInt256, collection: &Fraction.Collection, amount: UInt256, new: UFix64) {
-
+    pub fun updateFractionPrice(_ vaultId: UInt256, collection: &Fraction.Collection, startId: UInt64, amount: UInt256, new: UFix64) {
+        
         let fractionsOwner = collection.owner?.address!
 
-        //length is 0 for some reason
         let fractionIds = collection.vaultToFractions[vaultId]!.values()
 
         if fractionIds.length == 0 {
-            emit PriceUpdate(fractionsOwner: fractionsOwner, price: 0.0)
             return
         }
 
         var i: UInt256 = 0
+        var begin = startId
         let fractions: [UInt64] = []
         while i < amount {
-            let value = fractionIds[i]
+            let value = fractionIds[begin]
+            begin = begin + 1
             fractions.append(value)
             i = i + 1
         }
@@ -109,14 +108,16 @@ pub contract FractionalVault {
         //Update the price for fractionsPrices and remove old prices
         for id in fractions {
             let fraction = collection.borrowFraction(id: id)
-            let uuid = fraction!.uuid
+            let id = fraction!.id
             let nested = PriceBook.fractionPrices[vaultId] ?? {}
-            if nested[uuid] != nil {
-                PriceBook.removeFromPrice(vaultId, 1, nested[uuid]!)
-            }   
-            nested[uuid] = new
+            if nested[id] != nil {
+                PriceBook.removeFromPrice(vaultId, 1, nested[id]!)
+            }
+            nested[id] = new
             PriceBook.fractionPrices[vaultId] = nested
         }
+
+
         
         emit PriceUpdate(fractionsOwner: fractionsOwner, price: new)
     }
@@ -141,7 +142,7 @@ pub contract FractionalVault {
         pub var auctionEnd: UFix64?
         pub var auctionLength: UFix64
         pub var livePrice: UFix64?
-        pub var winning: Address?
+        pub var winning: Capability<&{WrappedCollection.WrappedCollectionPublic}>?
         pub var auctionState: State?
 
         init(
@@ -191,111 +192,126 @@ pub contract FractionalVault {
             self.curator = curator
         }
 
-        access(contract) fun sendFlow(to: Address, value: UFix64) {
+        access(contract) fun sendFlow(to: Capability<&{FungibleToken.Receiver}>, value: UFix64) {
             //borrow a capability for the vault of the 'to' address
-            let toVault = getAccount(to).getCapability<&FlowToken.Vault>(/public/flowTokenVault).borrow() ?? panic("Could not borrow a reference to the account receiver")
+            let toVault = to.borrow() ?? panic("Could not borrow a reference to the account receiver")
             //withdraw 'value' from the bidVault
             toVault.deposit(from: <- self.bidVault.withdraw(amount: value))
         }
         
 
         /// @notice kick off an auction. Must send reservePrice in FLOW
-        pub fun start(_ flowVault: @FungibleToken.Vault) {
+        //Place a condition that the auction starter most have a WrappedCollection capability
+        pub fun start(flowVault: @FungibleToken.Vault, bidder: Capability<&{WrappedCollection.WrappedCollectionPublic}>) {
             pre {
                 self.auctionState == State.inactive : "start:no auction starts"
+                bidder.check() == true : "Wrapped Collection capability must be linked"
                 flowVault.balance >= PriceBook.reservePrice(self.id).reserve : "start:too low bid"
                 PriceBook.reservePrice(self.id).voting * 2 >= Fraction.fractionSupply[self.id]! : "start:not enough voters"
             }
 
-            self.auctionEnd = getCurrentBlock().timestamp + self.auctionLength
+            self.auctionEnd = Clock.time() + self.auctionLength
             self.auctionState = State.live
 
             self.livePrice = flowVault.balance
-            self.winning = flowVault.owner?.address
+            self.winning = bidder
 
             //Deposit the bid into the vault
             self.bidVault.deposit(from: <-flowVault)
 
-            emit Start(buyer: self.winning!, price: self.livePrice!) 
+            emit Start(buyer: self.winning!.address, price: self.livePrice!) 
         }
 
-        pub fun bid(_ flowVault: @FungibleToken.Vault) {
+        //Place a condition that the auction starter most have a WrappedCollection capability
+        pub fun bid(flowVault: @FungibleToken.Vault, bidder: Capability<&{WrappedCollection.WrappedCollectionPublic}>) {
             pre {
-                self.auctionState == State.inactive : "bid:no auction starts"
-                flowVault.balance * 100.0 >= self.livePrice! * 105.0 : "bid:too low bid"
-                getCurrentBlock().timestamp < self.auctionEnd! : "bid:auction end"
+                self.auctionState == State.live : "bid:auction is not live"
+                bidder.check() == true : "bid:wrapped Collection capability must be linked"
+                flowVault.balance >= self.livePrice! * 1.05 : "bid:too low bid"
+                Clock.time() < self.auctionEnd! : "bid:auction end"
             }
 
+            //Add block height checks
             //900 is 15 minutes in seconds (for timestamp calculations)
-            if self.auctionEnd! - getCurrentBlock().timestamp <= 900.0 {
+            if self.auctionEnd! - Clock.time() <= 900.0 {
                 self.auctionEnd = self.auctionEnd! + 900.0
             }
             
             //refund the last bidder
-            self.sendFlow(to: self.winning!, value: self.livePrice!);
+            self.sendFlow(to: getAccount(self.winning!.address).getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver), value: self.livePrice!);
             
             self.livePrice = flowVault.balance
-            self.winning = flowVault.owner?.address
+            self.winning = bidder
 
-            emit Bid(buyer: flowVault.owner?.address!, price: flowVault.balance)
-
-            destroy flowVault
+            //Deposit the bid into the vault
+            self.bidVault.deposit(from: <- flowVault)
+            emit Bid(buyer: self.winning!.address, price: self.livePrice!)
         }
 
         pub fun end() {
             pre {
                 self.auctionState == State.live : "end:vault has already closed"
-                getCurrentBlock().timestamp >= self.auctionEnd! : "end:auction live"
+                
+                Clock.time() >= self.auctionEnd! : "end:auction live"
             }
             
             //get capabilit of the winners collection
-            let collection = getAccount(self.winning!).getCapability(WrappedCollection.WrappedCollectionPublicPath).borrow<&{WrappedCollection.WrappedCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
+            let collection = self.winning!.borrow() ?? panic("Auction winner does not have a capability to receive the underlying")
 
             // transfer NFT to winner
             let keys = self.underlying.getIDs()
             for key in keys {
-                collection.deposit(token: <- self.underlying.withdraw(withdrawID: key))
+                collection.depositWNFT(token: <- self.underlying.withdrawWNFT(withdrawID: key))
             }
             //change auction state
             self.auctionState = State.ended
 
             if self.settings.feeReceiver != nil {
-                self.sendFlow(to: self.settings.feeReceiver!, value: (self.livePrice! / 40.0))
+                self.sendFlow(to: self.settings.feeReceiver!, value: (self.livePrice! * 0.025))
             }
 
-            emit Won(buyer: self.winning!, price: self.livePrice!)
+            emit Won(buyer: self.winning!.address, price: self.livePrice!)
         }
 
-        /// @notice an external function to burn all fractions and receive the underlying
-        pub fun redeem(_ collection: @NonFungibleToken.Collection) {
+        /// @notice  function to burn all fractions and receive the underlying
+        pub fun redeem(collection: &Fraction.Collection, amount: UInt256, redeemer: Capability<&{WrappedCollection.WrappedCollectionPublic}>) {
             pre {
                 self.auctionState == State.inactive : "redeem:no redeeming"
+                redeemer.check() == true : "redeem:redeemer's collection capability must be linked"
             }
 
-            let fractions <- collection as! @Fraction.Collection
-
-            assert(fractions.balance() == Fraction.fractionSupply[self.id]!, message: "redeem:collection does not contain all fractions")
-
-            let fractionsOwner = fractions.owner?.address!
+            assert(collection.vaultToFractions[self.id]!.length() == Fraction.fractionSupply[self.id]!, message: "redeem:collection does not contain all fractions")
 
             //burn fractions
-            destroy fractions
-
-            //get capabilit of the winners collection
-            let collection = getAccount(fractionsOwner).getCapability(WrappedCollection.WrappedCollectionPublicPath).borrow<&{WrappedCollection.WrappedCollectionPublic}>() ?? panic("Could not borrow a reference to the account receiver")
-
-            //transfer NFTs to the owner of the fractions
-            let keys = self.underlying.getIDs()
-            for key in keys {
-                collection.deposit(token: <- self.underlying.withdraw(withdrawID: key))
+            var i: UInt256 = 0
+            for fractionId in collection.vaultToFractions[self.id]!.values() {
+                destroy collection.withdraw(withdrawID: fractionId)
+                i = i + 1
+                if i == amount {
+                    break
+                }
             }
+            
+            if Fraction.fractionSupply[self.id]! == 0 {
+                //get capabilit of the winners collection
+                let wrappedCollectionCapability = getAccount(collection.owner!.address).getCapability<&{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath)
+                
+                let wrappedCollection = wrappedCollectionCapability.borrow() ?? panic("redeem:could not borrow a reference to the redeemer's capability")
 
-            self.auctionState = State.redeemed
+                //transfer NFTs to the owner of the fractions
+                let keys = self.underlying.getIDs()
+                for key in keys {
+                    wrappedCollection.depositWNFT(token: <- self.underlying.withdrawWNFT(withdrawID: key))
+                }
 
-            emit Redeem(redeemer: fractionsOwner)
+                self.auctionState = State.redeemed
+
+                emit Redeem(redeemer: redeemer.address)
+            }
         }
 
-        pub fun cash(_ collection: @NonFungibleToken.Collection) {
+        //Might want to change this to a capability
+        pub fun cash(collection: @NonFungibleToken.Collection, collector: Capability<&{FungibleToken.Receiver}>) {
             pre {
                 self.auctionState == State.ended : "cash:vault not closed yet"
             }
@@ -303,8 +319,7 @@ pub contract FractionalVault {
             let fractions <- collection as! @Fraction.Collection
 
             assert(fractions.balance() > 0, message: "cash:no tokens to cash out")
-
-            let fractionsOwner = fractions.owner?.address!
+            assert(fractions.balance() == fractions.vaultToFractions[self.id]!.length(), message: "cash: cannot cash fractions from another vault")
             //calculate share of the total fraction supply for the vault (Need to check the math)
             var share = (UFix64(fractions.balance()) * self.bidVault.balance) / UFix64(Fraction.fractionSupply[self.id]!)
 
@@ -312,9 +327,9 @@ pub contract FractionalVault {
             destroy fractions
 
             //sendFlow
-            self.sendFlow(to: fractionsOwner, value: share)
+            self.sendFlow(to: collector, value: share)
 
-            emit Cash(owner: fractionsOwner, flow: share)
+            emit Cash(owner: collector.address, flow: share)
         }
 
         //Helper function that allows the minting function to rapidly
@@ -438,7 +453,7 @@ pub contract FractionalVault {
         let curator =  getAccount(vault!.curator!)
         let fractionCapability = curator.getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() 
         ?? panic("Could not borrow a reference to the account receiver")
-        //Receive the underlying
+        //Receive the fractions
         let fractionIds = fractions.getIDs()
         for fractionId in fractionIds {
             fractionCapability.deposit(token: <- fractions.withdraw(withdrawID: fractionId))

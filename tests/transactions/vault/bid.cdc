@@ -1,5 +1,4 @@
 import FungibleToken from "../../contracts/FungibleToken.cdc"
-import FungibleToken from "../../contracts/FungibleToken.cdc"
 import FlowToken from "../../contracts/FlowToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
@@ -12,7 +11,7 @@ transaction(vaultId: UInt256, amount: UFix64) {
     let fractionalVault: &FractionalVault.Vault
     //Vault used to kickoff the auction
     let sentVault: @FungibleToken.Vault
-    //Address that places the bids
+    //Capability that places the bids
     let bidder: Capability<&{WrappedCollection.WrappedCollectionPublic}>
 
     prepare(signer: AuthAccount){
@@ -34,7 +33,7 @@ transaction(vaultId: UInt256, amount: UFix64) {
     }
 
     execute {
-        self.fractionalVault.bid(<- self.sentVault, self.bidder)
+        self.fractionalVault.bid(flowVault: <- self.sentVault, bidder: self.bidder)
     }
 
 }

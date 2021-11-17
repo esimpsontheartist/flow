@@ -38,3 +38,34 @@ export const setupWrappedCollectionOnAccount = async (account) => {
 	return sendTransaction({ name, signers });
 };
 
+/*
+ * Returns an array with all the wnft ids owned by an account
+ * @param {Address} - address
+ * @throws Will throw an error if execution will be halted
+ * @returns {[UInt64]}
+ * */
+export const getWNFTCollectionIds = async (address) => {
+	const name = "wnft/get_collection_ids";
+	const args = [address];
+
+	return executeScript({ name, args });
+};
+
+/*
+ * Returns data of wnft given an id
+ * @param {Address} - address
+ * @throws Will throw an error if execution will be halted
+ * @returns {AccountItem?}
+ * AccountItem = {
+ * 	itemID: UInt64
+ *  resourceID: UInt64
+ *  owner: Address
+ * */
+export const getWNFT = async (address, itemID) => {
+	const name = "wnft/get_wnft";
+	const args = [address, itemID];
+
+	return executeScript({ name, args });
+};
+
+

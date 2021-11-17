@@ -20,12 +20,13 @@ export const deployFractionalVault = async () => {
 
 	await deployFraction()
 	await deployContractByName({ to: VaultAdmin, name: "WrappedCollection", addressMap: {NonFungibleToken: VaultAdmin} });
-
+	await deployContractByName({ to: VaultAdmin, name: "Clock"})
 	const addressMap = { 
 		NonFungibleToken: VaultAdmin,
 		PriceBook: VaultAdmin,
 		Fraction: VaultAdmin,
-		WrappedCollection: VaultAdmin
+		WrappedCollection: VaultAdmin,
+		Clock: VaultAdmin
 	}
 
 	return deployContractByName({ to: VaultAdmin, name: "FractionalVault", addressMap: addressMap, args: [VaultAddress] });
@@ -75,6 +76,8 @@ export const mintVaultFractions = async (signer, vaultId) => {
 
 	return sendTransaction({ name, args, signers, limit: 9999 });
 };
+
+
 
 /*
  * Calls the start() function to kickoff an auction
@@ -136,13 +139,13 @@ export const bid = async (signer, vaultId, amount) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const cash = async (signer, vaultId) => {
+export const cash = async (signer, vaultId, fractionIds) => {
 
 	const name = "vault/cash";
-	const args = [vaultId, amount]
+	const args = [vaultId, fractionIds]
 	const signers = [signer]
 
-	return sendTransaction({ name, args, signers })
+	return sendTransaction({ name, args, signers, limit: 9999 })
 }
 
 /*
@@ -154,13 +157,13 @@ export const cash = async (signer, vaultId) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const redeem = async (signer, vaultId) => {
+export const redeem = async (signer, vaultId, amount) => {
 
-	const name = "vault/reedem";
-	const args = [vaultId]
+	const name = "vault/redeem";
+	const args = [vaultId, amount]
 	const signers = [signer]
 
-	return sendTransaction({ name, args, signers })
+	return sendTransaction({ name, args, signers, limit: 9999 })
 }
 
 /*
@@ -172,14 +175,26 @@ export const redeem = async (signer, vaultId) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const updatePrice = async (signer, vaultId, amount, newPrice) => {
+export const updatePrice = async (signer, vaultId, startId, amount, newPrice) => {
 
 	const name = "vault/update_price";
-	const args = [vaultId, newPrice, amount]
+	const args = [vaultId, startId, amount, newPrice]
 	const signers = [signer]
 
 	return sendTransaction({ name, args, signers, limit: 9999 })
 }
+
+/**
+ * A function to tick the Clock (testing purposes only)
+ */
+ export const tickClock = async(time) => {
+	const name = "clock/tick";
+	const args = [time]
+	const VaultAddress = await getVaultAddress()
+	const signers = [VaultAddress]
+
+	return sendTransaction({ name, args, signers})
+ }
 
 // SCRIPTS
 
@@ -227,7 +242,8 @@ export const getVault = async (vaultId) => {
  * */
 export const getBidVaultBalance = async (vaultId) => {
 	const name = "vault/get_bidVaultBalance";
-	const args = [vaultId];
+	const VaultAddress = await getVaultAddress();
+	const args = [VaultAddress, vaultId];
 
 	return executeScript({ name, args });
 };
@@ -318,3 +334,6 @@ export const getReserveInfo = async (vaultId) => {
 
 
 
+
+
+ 
