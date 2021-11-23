@@ -6,15 +6,15 @@ import WrappedCollection from "../../contracts/WrappedCollection.cdc"
 transaction {
     prepare(signer: AuthAccount) {
         // if the account doesn't already have a collection
-        if signer.borrow<&WrappedCollection.Collection>(from: WrappedCollection.WrappedCollectionStoragePath) == nil {
+        if signer.borrow<&WrappedCollection.Collection>(from: WrappedCollection.CollectionStoragePath) == nil {
              // create a new empty collection
             let collection <- WrappedCollection.createEmptyCollection()
             
             // save it to the account
-            signer.save(<-collection, to: WrappedCollection.WrappedCollectionStoragePath)
+            signer.save(<-collection, to: WrappedCollection.CollectionStoragePath)
 
             // create a public capability for the collection
-            signer.link<&WrappedCollection.Collection{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath, target: WrappedCollection.WrappedCollectionStoragePath)
+            signer.link<&WrappedCollection.Collection{WrappedCollection.CollectionPublic}>(WrappedCollection.CollectionPublicPath, target: WrappedCollection.CollectionStoragePath)
         }
     }
 }

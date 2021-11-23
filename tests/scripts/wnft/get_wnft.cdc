@@ -14,7 +14,7 @@ pub struct AccountItem {
 }
 
 pub fun main(address: Address, itemID: UInt64): AccountItem? {
-  if let collection = getAccount(address).getCapability<&{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath).borrow() {
+  if let collection = getAccount(address).getCapability<&{WrappedCollection.CollectionPublic}>(WrappedCollection.CollectionPublicPath).borrow() {
     let item = collection.borrowNFT(id: itemID) 
     return AccountItem(itemID: itemID, resourceID: item.uuid, owner: address)
     

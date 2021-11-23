@@ -16,6 +16,8 @@ pub contract Fraction: NonFungibleToken {
 	//Fraction id to vault id 
 	pub let idToVault: {UInt64: UInt256}
 
+	//
+
     // Event that emitted when the NFT contract is initialized
     pub event ContractInitialized()
 
@@ -32,42 +34,62 @@ pub contract Fraction: NonFungibleToken {
     //
     pub event Deposit(id: UInt64, to: Address?)
 
+	
+	
 	pub resource interface Public {
 		pub let id: UInt64
 		pub let vaultId: UInt256
+		pub let name: String
+		pub let thumbnail: String
+		pub let description: String
+		pub let source: String
+		pub let media: String
+		pub let contentType: String
+		pub let protocol: String
 	}
 	//The resource that represents the
     pub resource NFT: NonFungibleToken.INFT, Public {
 
-		//Add this later
-		//string private baseURI;
-		/*
-			function updateBaseUri(string calldata base) external onlyOwner {
-			baseURI = base;
-			}
-
-			function uri(uint256 id)
-				public
-				view                
-				override
-				returns (string memory)
-			{
-				return
-					bytes(baseURI).length > 0
-						? string(abi.encodePacked(baseURI, id.toString()))
-						: baseURI;
-			}
-		*/
-		
 		//global unique fraction ID
         pub let id: UInt64
 		//Id to separate fractions by vault
 		pub let vaultId: UInt256
+		//name of the fraction collection
+		pub let name: String
+		//thumbnail to be shown in the blocto wallet
+		pub let thumbnail: String
+		//description
+		pub let description: String
+		//From what protocol does this NFT come from
+		pub let source: String
+		//data for the media
+		pub let media: String
+		//type of the content for the media (jpeg, gif, etc)
+		pub let contentType: String
+		//protocol of the media (ipfs, http, etc)
+		pub let protocol: String
 
-        init(id: UInt64, vaultId: UInt256) {
+        init(
+			id: UInt64, 
+			vaultId: UInt256,
+			name: String,
+			thumbnail: String,
+			description: String,
+			source: String,
+			media: String,
+			contentType: String,
+			protocol: String
+		) {
             self.id = id
 			self.vaultId = vaultId
-        } 
+			self.name = name 
+			self.thumbnail = thumbnail 
+			self.description = description 
+			self.source = source 
+			self.media = media 
+			self.contentType = contentType
+			self.protocol = protocol 
+        }
 
 		destroy() {
 			let priceBook = PriceBook.fractionPrices[self.vaultId] ?? {}
@@ -186,7 +208,17 @@ pub contract Fraction: NonFungibleToken {
 	}
 
 	// function to mint a group of fractions corresponding to a vault
-	access(account) fun mintFractions(amount: UInt256, vaultId: UInt256): @Collection {
+	access(account) fun mintFractions(
+		amount: UInt256, 
+		vaultId: UInt256,
+		name: String,
+		thumbnail: String,
+		description: String,
+		source: String,
+		media: String,
+		contentType: String,
+		protocol: String
+	): @Collection {
 
 		pre {
 			self.fractionSupply[vaultId] ?? 0 as UInt256 < 10000 : "Vault cannot mint more fractions!"
@@ -196,7 +228,18 @@ pub contract Fraction: NonFungibleToken {
 
 		var i: UInt256 = 0 
 		while i < amount {
-			newCollection.deposit(token: <- create NFT(id: Fraction.totalSupply, vaultId: vaultId))
+			newCollection.deposit(token: <- create NFT(
+					id: Fraction.totalSupply, 
+					vaultId: vaultId,
+					name: name,
+					thumbnail: thumbnail,
+					description: description,
+					source: source,
+					media: media,
+					contentType: contentType,
+					protocol: protocol
+				)
+			)
 			self.idToVault[self.totalSupply] = vaultId
 			self.totalSupply = self.totalSupply + 1
 			i = i + 1

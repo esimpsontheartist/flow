@@ -1,55 +1,48 @@
 import NonFungibleToken from "./NonFungibleToken.cdc"
 
-// NFTCollection
-//
-// A general purpose generic collection contract for Flow NFTs
-//
-pub contract WrappedCollection {
+pub contract WrappedCollection: NonFungibleToken {
 
+    
+	pub let CollectionStoragePath: StoragePath
+	pub let CollectionPublicPath: PublicPath
 
-    pub let WrappedCollectionStoragePath: StoragePath
-	pub let WrappedCollectionPublicPath: PublicPath
     //Event emmited when contract has been deployed
     pub event CollectionIntialized()
 
-    // Event that is emitted when a token is withdrawn,
-    // indicating the owner of the collection that it was withdrawn from.
-    //
-    // If the collection is not in an account's storage, `from` will be `nil`.
-    //
+    pub var totalSupply: UInt64
+
+    // Event that emitted when the NFT contract is initialized
+    pub event ContractInitialized()
+
     pub event Withdraw(id: UInt64, from: Address?)
 
-    // Event that emitted when a token is deposited to a collection.
-    //
-    // It indicates the owner of the collection that it was deposited to.
-    //
     pub event Deposit(id: UInt64, to: Address?)
 
-    pub resource interface WrappedNFT {
+	pub resource interface WrappedNFT {
        pub fun getAddress(): Address
-       pub fun getCollectionPath(): PublicPath
+       pub fun getUnderlyingCollectionPath(): PublicPath
        pub fun nestedType(): Type
        pub fun borrowNFT(): &NonFungibleToken.NFT
     }
 
     // An NFT wrapped with useful information (by @briandilley)
-    pub resource WNFT : WrappedNFT, NonFungibleToken.INFT {
+    pub resource NFT : WrappedNFT, NonFungibleToken.INFT {
         pub let id: UInt64
         access(contract) var nft: @NonFungibleToken.NFT?
         access(self) let address: Address
-        access(self) let collectionPath: PublicPath
+        access(self) let underlyingCollectionPath: PublicPath
         access(self) let nftType: Type
 
         init(
             nft: @NonFungibleToken.NFT,
             address: Address,
-            collectionPath: PublicPath,
+            underlyingCollectionPath: PublicPath,
             nftType: Type
         ) {
             self.id = nft.uuid
             self.nft <- nft
             self.address = address
-            self.collectionPath = collectionPath
+            self.underlyingCollectionPath = underlyingCollectionPath
             self.nftType = nftType
         }
 
@@ -57,8 +50,8 @@ pub contract WrappedCollection {
             return self.address
         }
 
-        pub fun getCollectionPath(): PublicPath {
-            return self.collectionPath
+        pub fun getUnderlyingCollectionPath(): PublicPath {
+            return self.underlyingCollectionPath
         }
 
         pub fun nestedType(): Type {
@@ -90,119 +83,97 @@ pub contract WrappedCollection {
     }
 
     // a function to wrap an NFT
-    pub fun wrap(nft: @NonFungibleToken.NFT, address: Address, collectionPath: PublicPath, nftType: Type ): @WrappedCollection.WNFT {
-        return <- create WNFT(nft: <- nft, address: address, collectionPath: collectionPath, nftType: nftType)
+    pub fun wrap(nft: @NonFungibleToken.NFT, address: Address, collectionPath: PublicPath, nftType: Type ): @WrappedCollection.NFT {
+        return <- create NFT(nft: <- nft, address: address, underlyingCollectionPath: collectionPath, nftType: nftType)
     }
+    
 
     //interface that can also borrowArt as the correct type
-	pub resource interface WrappedCollectionPublic {
-        pub fun deposit(nft: @NonFungibleToken.NFT, address: Address, collectionPath: PublicPath, nftType: Type)
-        pub fun depositWNFT(token: @WrappedCollection.WNFT)
+	pub resource interface CollectionPublic {
+        pub fun deposit(token: @NonFungibleToken.NFT)
 		pub fun getIDs(): [UInt64]
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-        pub fun borrowWNFT(id: UInt64): &WrappedCollection.WNFT
+        pub fun borrowWNFT(id: UInt64): &{WrappedCollection.WrappedNFT}?
 	}
 
-    pub resource Collection: WrappedCollectionPublic {
-        // dictionary of WNFT conforming tokens
-        // WNFT is a resource type with an `UInt64` ID field
-        pub var ownedNFTs: @{UInt64: WNFT}
+     pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+        
+		// dictionary of NFT conforming tokens
+		// NFT is a resource type with an `UInt64` ID field
+		pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
-        init () {
-            self.ownedNFTs <- {}
-        }
+		init () {
+			self.ownedNFTs <- {}
+		}
 
-        // withdraw removes an WNFT from the collection, unwraps it, and moves it to the caller
-        pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
-            //remove the WNFT from the ownedNFTs dictionary
+        // withdraw removes an NFT from the collection and moves it to the caller
+		pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
+			//remove the WNFT from the ownedNFTs dictionary
             let wnft <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
-            let nft <- wnft.unwrap()
-
-            emit Withdraw(id: nft.uuid, from: self.owner?.address)
-            destroy wnft
-            return <- nft
-        }
-
-        // withdrawWNFT removes an WNFT from the collection, mainly used for moving WNFTs without unwrapping
-        pub fun withdrawWNFT(withdrawID: UInt64): @WrappedCollection.WNFT {
-            //remove the WNFT from the ownedNFTs dictionary
-            let wnft <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
-
-            emit Withdraw(id: wnft.id, from: self.owner?.address)
+            emit Withdraw(id: wnft.uuid, from: self.owner?.address)
 
             return <- wnft
-        }
+		}
 
-        // deposit takes a NFT conforming to WNFT and adds it to the collections dictionary
-        // and adds the ID to the id array
-        pub fun deposit(nft: @NonFungibleToken.NFT, address: Address, collectionPath: PublicPath, nftType: Type) {
-
-            let wnft <- WrappedCollection.wrap(
-                nft: <- nft, 
-                address: address, 
-                collectionPath: collectionPath, 
-                nftType: nftType
-            )
+        // deposit takes a NFT and adds it to the collections dictionary
+		// and adds the ID to the id array
+		pub fun deposit(token: @NonFungibleToken.NFT) {
+			let token <- token as! @WrappedCollection.NFT
             
-            let id: UInt64 = wnft.id
-            //need to create the WNFT
-            
-            // add the new token to the dictionary which removes the old one
-            let oldToken <- self.ownedNFTs[id] <- wnft
-            
-            emit Deposit(id: id, to: self.owner?.address)
-
-            destroy oldToken
-        }
-
-        pub fun depositWNFT(token: @WrappedCollection.WNFT) {
-            //need to create the WNFT
             let id: UInt64 = token.id
-
+            //need to create the WNFT
+            
             // add the new token to the dictionary which removes the old one
             let oldToken <- self.ownedNFTs[id] <- token
-
+            
             emit Deposit(id: id, to: self.owner?.address)
 
             destroy oldToken
-        }
+		}
 
-        // getIDs returns an array of the IDs that are in the collection
-        pub fun getIDs(): [UInt64] {
-            return self.ownedNFTs.keys
-        }
+		// getIDs returns an array of the IDs that are in the collection
+		pub fun getIDs(): [UInt64] {
+			return self.ownedNFTs.keys
+		}
 
+        // Returns a borrowed reference to an NFT in the collection
+        // so that the caller can read data and call methods from it
         // borrowNFT gets a reference to an NFT in the collection
-        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            let borrowed = &self.ownedNFTs[id] as &WNFT
-            return borrowed.borrowNFT()
-        }
+		// so that the caller can read its metadata and call its methods
+		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
+			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+		}
 
         // borrowWNFT gets a reference to a WNFT in the collection
         // so that the caller can read its metadata and call its methods, etc
-        pub fun borrowWNFT(id: UInt64): &WrappedCollection.WNFT {
-            let borrowed = &self.ownedNFTs[id] as &WNFT
-            return borrowed
+        pub fun borrowWNFT(id: UInt64): &{WrappedCollection.WrappedNFT}? {
+            if self.ownedNFTs[id] != nil {
+                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                return ref as! &WrappedCollection.NFT
+            } else {
+                return nil
+            }
+            
         }
 
+
+
         destroy() {
-            destroy self.ownedNFTs
-        }
+			destroy self.ownedNFTs
+		}
+
     }
 
     // public function that anyone can call to create a new empty collection
-    pub fun createEmptyCollection(): @WrappedCollection.Collection {
-        return <- create Collection()
-    }
+	pub fun createEmptyCollection(): @NonFungibleToken.Collection {
+		return <- create Collection()
+	} 
 
-
-    init(){
-        self.WrappedCollectionPublicPath = /public/wrappedCollection
-		self.WrappedCollectionStoragePath = /storage/wrappedCollection
-
-        self.account.save<@WrappedCollection.Collection>(<- WrappedCollection.createEmptyCollection(), to: WrappedCollection.WrappedCollectionStoragePath)
-		self.account.link<&{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath, target: WrappedCollection.WrappedCollectionStoragePath)
+    init() {
+        self.totalSupply = 0
+        self.CollectionPublicPath =  /public/wrappedCollection
+		self.CollectionStoragePath = /storage/wrappedCollection
 
         emit CollectionIntialized()
     }

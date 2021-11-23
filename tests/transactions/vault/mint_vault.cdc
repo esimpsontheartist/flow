@@ -1,4 +1,6 @@
 import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import Fraction from "../../contracts/Fraction.cdc"
+import FlowToken from "../../contracts/FlowToken.cdc"
 import WrappedCollection from "../../contracts/WrappedCollection.cdc"
 import ExampleNFT from "../../contracts/ExampleNFT.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
@@ -9,9 +11,13 @@ transaction(nftIds: [UInt64], fractionCurator: Address) {
     //An example NFT collection
     let collection: &ExampleNFT.Collection
     
+    let curator: Capability<&{Fraction.CollectionPublic}>
     //The user authorizes borrowing the transaction to borrow the collection
     prepare(account: AuthAccount) {
-        self.collection = account.borrow<&ExampleNFT.Collection>(from: ExampleNFT.CollectionStoragePath) ?? panic("could not load collection")
+        self.collection = account.borrow<&ExampleNFT.Collection>(from: ExampleNFT.CollectionStoragePath) 
+        ?? panic("could not load collection")
+
+        self.curator = account.getCapability<&{Fraction.CollectionPublic}>(Fraction.CollectionPublicPath)
     }
 
     execute {
@@ -28,11 +34,17 @@ transaction(nftIds: [UInt64], fractionCurator: Address) {
             //wrap the underlying
             let wrapped <- WrappedCollection.wrap(nft: <- underlying, address: address, collectionPath: path, nftType: type)
 
-            collection.depositWNFT(token: <- wrapped)
+            collection.deposit(token: <- wrapped)
         }
         
 
-        FractionalVault.mintVault(collection: <- collection, fractionCurator: fractionCurator)
+        FractionalVault.mintVault(
+            collection: <- collection, 
+            collectionType: Type<@WrappedCollection.Collection>(),
+            bidVault: <- FlowToken.createEmptyVault(),
+            bidVaultType: Type<@FlowToken.Vault>(),
+            curator: self.curator
+        )
     }
 }
 

@@ -11,7 +11,7 @@ transaction(vaultId: UInt256, amount: UInt256) {
     //Address where the vaults are stored
     let fractionalVault: &FractionalVault.Vault
     //Capability that places the bids
-    let redeemer: Capability<&{WrappedCollection.WrappedCollectionPublic}>
+    let redeemer: Capability<&{NonFungibleToken.CollectionPublic}>
 
     prepare(signer: AuthAccount){
         let vaultAddress = FractionalVault.vaultAddress
@@ -26,12 +26,15 @@ transaction(vaultId: UInt256, amount: UInt256) {
         self.usersCollection = signer.borrow<&Fraction.Collection>(from: Fraction.CollectionStoragePath)
             ?? panic("Could not borrow reference to the owner's Vault!")
 
-        self.redeemer = signer.getCapability<&{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath)
-
+        self.redeemer = signer.getCapability<&{NonFungibleToken.CollectionPublic}>(WrappedCollection.CollectionPublicPath)
     }
 
     execute {
-        self.fractionalVault.redeem(collection: self.usersCollection, amount: amount, redeemer: self.redeemer)
+        self.fractionalVault.redeem(
+            collection: self.usersCollection, 
+            amount: amount, 
+            redeemer: self.redeemer
+        )
     }
 
 }

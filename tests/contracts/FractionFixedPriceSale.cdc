@@ -1,0 +1,280 @@
+import FungibleToken from "./FungibleToken.cdc"
+import Fraction from "./Fraction.cdc"
+import FractionalVault from "./FractionalVault.cdc"
+import NonFungibleToken from "./NonFungibleToken.cdc"
+
+// A fixed price sale for Fractions that utilizes lazy minting
+pub contract FractionFixedPriceSale {
+
+    pub let CollectionStoragePath: StoragePath
+    pub let CollectionPublicPath: PublicPath
+
+    //Number of listings that have occured (also used to generate a Sale ID)
+    pub var numOfListings: UInt64
+    //Mapping of IDs to listings
+    pub var listings: {UInt64: ListingData}
+
+    //Sale ID to Sale Data
+    pub let sales: {UInt64: SaleData}
+
+    pub event Purchase(saleData: SaleData)
+
+    pub event Listing(listingData: ListingData)
+
+    pub event Cancelled(listingData: ListingData)
+
+    pub struct SaleData {
+        pub let id: UInt64
+        pub let salePrice: UFix64
+        pub let fraction: FractionalVault.FractionData
+        pub let fractionIdsSold: [UInt64]
+        pub let seller: Address
+
+        init(
+            _ id: UInt64,
+            _ salePrice: UFix64,
+            _ fraction: FractionalVault.FractionData,
+            _ fractionIdsSold: [UInt64],
+            _ seller: Address
+        ){
+            self.id = id
+            self.salePrice = salePrice
+            self.fraction = fraction
+            self.fractionIdsSold = fractionIdsSold
+            self.seller = seller
+        }
+    }
+
+    pub struct ListingData {
+        pub let saleId: UInt64
+        pub let vaultId: UInt256
+        pub let fractionData: FractionalVault.FractionData
+        pub let curator: Address
+        pub let amount: UInt256
+        pub let salePrice: UFix64
+        pub let salePaymentType: Type
+        pub let receiver: Address
+        pub let live: Bool
+
+        init(
+            _ saleId: UInt64,
+            _ vaultId: UInt256, 
+            _ fractionData: FractionalVault.FractionData,
+            _ curator: Address,
+            _ amount: UInt256, 
+            _ salePrice: UFix64,
+            _ salePaymentType: Type,
+            _ receiver: Address,
+            _ live: Bool
+        ) {
+            self.saleId = saleId
+            self.vaultId = vaultId
+            self.fractionData = fractionData
+            self.curator = curator
+            self.amount = amount
+            self.salePrice = salePrice
+            self.salePaymentType = salePaymentType
+            self.receiver = receiver
+            self.live = live
+        }
+    }
+
+    pub resource Sale {
+        
+        pub let id: UInt64
+        pub let vaultId: UInt256
+        pub let salePrice: UFix64
+        pub let amount: UInt256
+        pub let salePaymentType: Type
+        pub let receiver: Capability<&{FungibleToken.Receiver}>
+        pub let curator: Capability<&Fraction.Collection>
+        pub var discontinued: Bool
+        
+        init(
+            id: UInt64,
+            vaultId: UInt256,
+            amount: UInt256,
+            salePrice: UFix64,
+            salePaymentType: Type,
+            curator: Capability<&Fraction.Collection>,
+            receiver: Capability<&{FungibleToken.Receiver}>
+        ){
+            self.id = id
+            self.vaultId = vaultId
+            self.salePrice = salePrice
+            self.amount = amount
+            self.salePaymentType = salePaymentType
+            self.curator = curator
+            self.receiver = receiver
+            self.discontinued = false
+        }
+
+        pub fun purchase(buyTokens: @FungibleToken.Vault): @Fraction.Collection {
+
+            pre {
+                self.discontinued == false : "purchase:cannot buy from a discontinued sale"
+                buyTokens.isInstance(self.salePaymentType) : "purchase:buyTokens is not the same typee as the salePaymentType"
+                buyTokens.balance == UFix64(self.amount) * self.salePrice : "purchase:buyTokens is not enough to purchase"
+            }
+
+            let receiver = self.receiver.borrow() ?? panic("purchase:could not borrow a reference for the receiver")
+
+            receiver.deposit(from: <- buyTokens)
+            
+            let fractions <- Fraction.mintFractions(
+                amount: self.amount, 
+                vaultId: FractionalVault.vaultToFractionData[self.vaultId]!.vaultId, 
+                name: FractionalVault.vaultToFractionData[self.vaultId]!.name, 
+                thumbnail: FractionalVault.vaultToFractionData[self.vaultId]!.thumbnail, 
+                description: FractionalVault.vaultToFractionData[self.vaultId]!.description, 
+                source: FractionalVault.vaultToFractionData[self.vaultId]!.source, 
+                media: FractionalVault.vaultToFractionData[self.vaultId]!.media, 
+                contentType: FractionalVault.vaultToFractionData[self.vaultId]!.contentType, 
+                protocol: FractionalVault.vaultToFractionData[self.vaultId]!.protocol
+            )
+
+            FractionFixedPriceSale.sales[self.id] = SaleData(
+                self.id,
+                self.salePrice,
+                FractionalVault.vaultToFractionData[self.vaultId]!,
+                fractions.getIDs(),
+                self.receiver.address
+            )
+
+            emit Purchase(saleData: FractionFixedPriceSale.sales[self.id]!)
+
+            self.discontinued = true
+            
+            return <- fractions
+        }
+
+        destroy() {
+             FractionFixedPriceSale.listings[self.id] = nil
+        }
+
+    }
+
+    pub resource interface FixedSaleCollectionPublic {
+        pub fun purchaseListing(listingId: UInt64, buyTokens: @FungibleToken.Vault): @Fraction.Collection
+        pub fun getIDs(): [UInt64]
+        pub fun getMetadata(saleId: UInt64): FractionalVault.FractionData
+    }
+
+    pub resource FixedSaleCollection {
+
+        pub var forSale: @{UInt64: Sale}
+
+        //Curator list a number of fractions for sale
+        pub fun list(
+            vaultId: UInt256, 
+            curator: Capability<&Fraction.Collection>,
+            amount: UInt256, 
+            salePrice: UFix64,
+            salePaymentType: Type,
+            receiver: Capability<&{FungibleToken.Receiver}>
+        ) {
+            pre {
+                curator.check() == true : "list:curator capability must be linked"
+                receiver.check() == true : "list:receiver capability must be linked"
+                curator.address == receiver.address : "list:receiver is not the curator"
+            }
+
+            if let vaultCollection = getAccount(FractionalVault.vaultAddress).getCapability<&FractionalVault.VaultCollection{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() {
+                if let vault = vaultCollection.borrowVault(id: vaultId) {
+                    assert(vault.curator.address == curator.address, message: "list:no rights to mint for the given vaultId")
+                    
+                    let listing <- create Sale(
+                        id: FractionFixedPriceSale.numOfListings,
+                        vaultId: vaultId,
+                        amount: amount,
+                        salePrice: salePrice,
+                        salePaymentType: salePaymentType,
+                        curator: curator,
+                        receiver: receiver
+                    )
+
+                    let listingData = FractionFixedPriceSale.ListingData(
+                        listing.id,
+                        vaultId,
+                        FractionalVault.vaultToFractionData[vaultId]!,
+                        curator.address,
+                        amount,
+                        salePrice,
+                        salePaymentType,
+                        receiver.address,
+                        true
+                    )
+
+                    emit Listing(listingData: listingData)
+
+                    FractionFixedPriceSale.listings[listing.id] = listingData
+
+                    let oldListing <- self.forSale[FractionFixedPriceSale.numOfListings] <- listing
+
+                    destroy oldListing
+
+
+                    FractionFixedPriceSale.numOfListings = FractionFixedPriceSale.numOfListings + 1
+                }
+            }
+        }
+
+        //purchase
+        pub fun purchaseListing(listingId: UInt64, buyTokens: @FungibleToken.Vault): @Fraction.Collection {
+
+            let listing <- self.forSale.remove(key: listingId) ?? panic("purchaseListing:missing listing")
+
+            let fractions <- listing.purchase(buyTokens: <- buyTokens)
+            
+            destroy listing
+            
+            return <- fractions
+        }
+
+        //cancel
+        pub fun cancelListing(listingId: UInt64) {
+            let listing <- self.forSale.remove(key: listingId) ?? panic("cancelListing:missing listing")
+            
+             let listingData = FractionFixedPriceSale.ListingData(
+                listing.id,
+                listing.vaultId,
+                FractionalVault.vaultToFractionData[listing.vaultId]!,
+                listing.curator.address,
+                listing.amount,
+                listing.salePrice,
+                listing.salePaymentType,
+                listing.receiver.address,
+                false
+            )
+
+            emit Cancelled(listingData: listingData)
+            destroy listing
+        }
+
+        pub fun getIDs(): [UInt64] {
+            return self.forSale.keys
+        }
+
+        init(){
+            self.forSale <- {}
+        }
+
+        destroy() {
+            destroy self.forSale
+        }
+    }
+
+    pub fun createFixedPriceSaleCollection(): @FixedSaleCollection {
+        return <- create FixedSaleCollection()
+    }
+
+    pub init() {
+        self.sales = {}
+        self.numOfListings = 0
+        self.listings = {}
+
+        self.CollectionPublicPath= /public/fractionFixedPriceSale
+        self.CollectionStoragePath= /storage/fractionFixedPriceSale
+    }
+
+}

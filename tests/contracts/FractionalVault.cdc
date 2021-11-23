@@ -1,7 +1,5 @@
 import FungibleToken from "./FungibleToken.cdc"
-import FlowToken from "./FlowToken.cdc"
 import NonFungibleToken from "./NonFungibleToken.cdc"
-import WrappedCollection from "./WrappedCollection.cdc"
 import PriceBook from "./PriceBook.cdc"
 import Fraction from "./Fraction.cdc"
 import Clock from "./Clock.cdc"
@@ -25,12 +23,12 @@ pub contract FractionalVault {
     pub let VaultStoragePath: StoragePath
 	pub let VaultPublicPath: PublicPath
 
-    //Vault settings (NEEDS A CLEANUP)
+    //Vault settings 
     pub struct Settings {
-        pub var feeReceiver: Capability<&{FungibleToken.Receiver}>? // the address that receives auction fees
+        // the address that receives auction fees
+        pub var feeReceiver: Capability<&{FungibleToken.Receiver}>? 
 
-            //need to set the right initial values
-            init() {
+        init() {
             self.feeReceiver = nil
         }
 
@@ -44,7 +42,41 @@ pub contract FractionalVault {
 
     }
 
-    /// @notice a settings constant controlled by governance
+    pub struct FractionData {
+		pub let vaultId: UInt256
+		pub let name: String
+		pub let thumbnail: String
+		pub let description: String
+		pub let source: String
+		pub let media: String
+		pub let contentType: String
+		pub let protocol: String
+
+        init(
+			vaultId: UInt256,
+			name: String,
+			thumbnail: String,
+			description: String,
+			source: String,
+			media: String,
+			contentType: String,
+			protocol: String
+		) {
+			self.vaultId = vaultId
+			self.name = name 
+			self.thumbnail = thumbnail 
+			self.description = description 
+			self.source = source 
+			self.media = media 
+			self.contentType = contentType
+			self.protocol = protocol 
+        }
+	}
+
+    //mapping of vaultId to Fraction Data
+    pub let vaultToFractionData: {UInt256: FractionData}
+
+    /// @notice settings constant controlled by governance
     access(account) let settings: Settings
 
     //Vault settings Events
@@ -58,10 +90,37 @@ pub contract FractionalVault {
         pub case redeemed
     }
 
+    //struct for the underlying nft data
+    pub struct Media {
+        pub let data: String
+        pub let contentType: String
+        pub let protocol: String
+
+        init(data: String, contentType: String, protocol: String) {
+			self.data = data
+			self.protocol = protocol
+			self.contentType = contentType
+		}
+    }
+
+    pub struct Display{
+		pub let name: String
+		pub let thumbnail: String
+		pub let description: String
+		pub let source: String
+
+		init(name: String, thumbnail: String, description: String, source: String) {
+			self.source = source
+			self.name = name
+			self.thumbnail = thumbnail
+			self.description = description
+		}
+	}
+
     /// -----------------------------------
     /// ------ Vault Events ---------------
     /// -----------------------------------
-    //@reserach: is there a concept in Cadence/Flow similar to 'indexed'
+    /// TODO: improve events
     /// @notice An event emitted when a user updates their price
     pub event PriceUpdate(fractionsOwner: Address, price: UFix64);
     /// @notice An event emitted when a user updates their price
@@ -78,11 +137,10 @@ pub contract FractionalVault {
     pub event Cash(owner: Address, flow: UFix64);
     //Mint event
     pub event Mint(underlyingOwner: Address, vaultId: UInt256);
-
     // @notice An envet emitted when a vault resource is initialized
-    pub event Initialized(id: UInt256)
+    pub event Initialized(id: UInt256);
 
-    //check that the argument is the right type of capbility (restriced vs non-restriced)
+
     pub fun updateFractionPrice(_ vaultId: UInt256, collection: &Fraction.Collection, startId: UInt64, amount: UInt256, new: UFix64) {
         
         let fractionsOwner = collection.owner?.address!
@@ -117,8 +175,6 @@ pub contract FractionalVault {
             PriceBook.fractionPrices[vaultId] = nested
         }
 
-
-        
         emit PriceUpdate(fractionsOwner: fractionsOwner, price: new)
     }
 
@@ -131,38 +187,82 @@ pub contract FractionalVault {
 
         //The vault that holds fungible tokens for an auction
         access(contract) let bidVault: @FungibleToken.Vault
+        //The type of Fungible Token that the vault accepts
+        access(contract) let bidVaultType: Type
         //The collection for the fractions
         access(contract) var fractions: @Fraction.Collection
         //Collection of the NFTs the user will fractionalize (UInt64 is meant to be the NFT's uuid)
-        access(contract) var underlying: @WrappedCollection.Collection
+        access(contract) var underlying: @NonFungibleToken.Collection
+        //Type of collection that was deposited
+        access(contract) let underlyingType: Type
         //address that can receive the fractions
-        access(contract) var curator: Address?
+        pub let curator: Capability<&Fraction.Collection>
+        //Max supply the user allows to exist
+        access(contract) var maxSupply: UInt64
+        //Min supply that the contract allows
+        access(contract) var minSupply: UInt64
+        //Hold media for the underlying nfts
+        access(contract) let medias: {UInt64: Media}
+        //Hold display information for the underlying
+        access(contract) let displays: {UInt64: Display}
 
         // Auction information// 
         pub var auctionEnd: UFix64?
         pub var auctionLength: UFix64
         pub var livePrice: UFix64?
-        pub var winning: Capability<&{WrappedCollection.WrappedCollectionPublic}>?
+        pub var winning: Capability<&{NonFungibleToken.CollectionPublic}>?
+        pub var refundCapability: Capability<&{FungibleToken.Receiver}>?
         pub var auctionState: State?
 
         init(
             id: UInt256,
+            underlying: @NonFungibleToken.Collection,
+            underlyingType: Type,
+            bidVault: @FungibleToken.Vault,
+            bidVaultType: Type,
+            curator: Capability<&Fraction.Collection>,
+            maxSupply: UInt64,
+            medias: {UInt64: Media},
+            displays: {UInt64: Display},
+            fractionData: FractionalVault.FractionData
         ) {
+            pre {
+                underlyingType.isInstance(underlyingType) : "init:type for the underlying collection does not conform to the NFT standard"
+                bidVaultType.isInstance(bidVaultType) : "init:type for the underlying collection does not conform to the NFT standard"
+                curator.check() == true : "init:curator capability must be linked"
+                medias.length == underlying.getIDs().length : "init:length of medias does not equal the length of the collection"
+                displays.length == underlying.getIDs().length : "init:length of displays does not equal the length of the collection"
+
+            }
+
+            post {
+                maxSupply >= self.minSupply : "init:max supply cannot be less than the minimum allowed supply"
+            }
+
             self.id = id
+            self.underlying <- underlying
+            self.underlyingType = underlyingType
+            self.bidVault <- bidVault
+            self.bidVaultType = bidVaultType
+            self.curator = curator
             self.settings = FractionalVault.settings
             self.auctionLength = 172800.0 //2 days in seconds 
             self.auctionState = State.inactive
-            
-            // Resources
-            self.bidVault <- FlowToken.createEmptyVault()
-            self.fractions <- Fraction.createEmptyFractionCollection()
-            self.underlying <- WrappedCollection.createEmptyCollection()
+            self.maxSupply = maxSupply
+            self.minSupply = 1000
+            self.medias = medias
+            self.displays = displays
 
+            //Set data for the fractions that will be minted
+
+            // Resources
+            self.fractions <- Fraction.createEmptyFractionCollection()
+            
             //optional nil variables
             self.auctionEnd = nil
             self.livePrice = nil
             self.winning = nil
-            self.curator = nil
+            self.refundCapability = nil
             
             emit Initialized(id: id)
         }
@@ -172,27 +272,31 @@ pub contract FractionalVault {
         }
 
         // function to borrow a reference to the underlying collection
-        pub fun borrowUnderlying(): &{WrappedCollection.WrappedCollectionPublic} {
-            return &self.underlying as &{WrappedCollection.WrappedCollectionPublic}
+        pub fun borrowUnderlying(): &{NonFungibleToken.CollectionPublic} {
+            return &self.underlying as &{NonFungibleToken.CollectionPublic}
+        }
+
+        pub fun getUnderlyingType(): Type {
+            return self.underlyingType
         }
 
         pub fun borrowBidVault(): &{FungibleToken.Balance} {
             return &self.bidVault as &{FungibleToken.Balance}
         }
 
+        pub fun getBidVaultType(): Type {
+            return self.bidVaultType
+        }
+
         pub fun borrowCollection() : &{Fraction.CollectionPublic} {
             return &self.fractions as! auth &{Fraction.CollectionPublic}
         }
 
-        pub fun getcurator(): Address? {
-            return self.curator
+        pub fun getcurator(): Address {
+            return self.curator.address
         }
 
-        access(contract) fun setCurator(_ curator: Address){
-            self.curator = curator
-        }
-
-        access(contract) fun sendFlow(to: Capability<&{FungibleToken.Receiver}>, value: UFix64) {
+        access(contract) fun sendFungibleToken(to: Capability<&{FungibleToken.Receiver}>, value: UFix64) {
             //borrow a capability for the vault of the 'to' address
             let toVault = to.borrow() ?? panic("Could not borrow a reference to the account receiver")
             //withdraw 'value' from the bidVault
@@ -200,37 +304,60 @@ pub contract FractionalVault {
         }
         
 
-        /// @notice kick off an auction. Must send reservePrice in FLOW
-        //Place a condition that the auction starter most have a WrappedCollection capability
-        pub fun start(flowVault: @FungibleToken.Vault, bidder: Capability<&{WrappedCollection.WrappedCollectionPublic}>) {
+        /// @notice kick off an auction. Must send reservePrice in the correct Fungible Token
+        pub fun start(
+            ftVault: @FungibleToken.Vault, 
+            refund: Capability<&{FungibleToken.Receiver}>,
+            bidder: Capability<&{NonFungibleToken.CollectionPublic}>
+        ) {
             pre {
                 self.auctionState == State.inactive : "start:no auction starts"
-                bidder.check() == true : "Wrapped Collection capability must be linked"
-                flowVault.balance >= PriceBook.reservePrice(self.id).reserve : "start:too low bid"
+                bidder.check() == true : "start:collection capability must be linked"
+                refund.check() == true : "start:refund capability must be linked"
+                ftVault.isInstance(self.bidVaultType) : "start:bid is not the requested fungible token"
+                ftVault.balance >= PriceBook.reservePrice(self.id).reserve : "start:too low bid"
                 PriceBook.reservePrice(self.id).voting * 2 >= Fraction.fractionSupply[self.id]! : "start:not enough voters"
             }
+
+            let bidderRef= bidder.borrow() ?? panic("start:could not borrow a reference from the bidders capability")
+            assert(bidderRef.isInstance(self.underlyingType), message: "start:bidder's collection capability does not match the vault")
+
+            let refundRef = refund.borrow() ?? panic("start:could not borrow a reference from the refund capability")
+            assert(refundRef.isInstance(self.bidVaultType), message: "start:refund capability is not the requested token")
 
             self.auctionEnd = Clock.time() + self.auctionLength
             self.auctionState = State.live
 
-            self.livePrice = flowVault.balance
+            self.livePrice = ftVault.balance
             self.winning = bidder
+            self.refundCapability = refund
 
             //Deposit the bid into the vault
-            self.bidVault.deposit(from: <-flowVault)
+            self.bidVault.deposit(from: <- ftVault)
 
             emit Start(buyer: self.winning!.address, price: self.livePrice!) 
         }
 
         //Place a condition that the auction starter most have a WrappedCollection capability
-        pub fun bid(flowVault: @FungibleToken.Vault, bidder: Capability<&{WrappedCollection.WrappedCollectionPublic}>) {
+        pub fun bid(
+            ftVault: @FungibleToken.Vault, 
+            refund: Capability<&{FungibleToken.Receiver}>,
+            bidder: Capability<&{NonFungibleToken.CollectionPublic}>
+        ) {
             pre {
                 self.auctionState == State.live : "bid:auction is not live"
-                bidder.check() == true : "bid:wrapped Collection capability must be linked"
-                flowVault.balance >= self.livePrice! * 1.05 : "bid:too low bid"
+                bidder.check() == true : "bid:wrapped collection capability must be linked"
+                refund.check() == true : "bid:refund capability must be linked"
+                ftVault.isInstance(self.bidVaultType) : "bid:bid is not the requested fungible token"
+                ftVault.balance >= self.livePrice! * 1.05 : "bid:too low bid"
                 Clock.time() < self.auctionEnd! : "bid:auction end"
             }
 
+            let bidderRef = bidder.borrow() ?? panic("bid:could not borrow a reference for the bidders capability")
+            assert(bidderRef.isInstance(self.underlyingType), message: "bid:bidder's collection capability does not match the vault")
+
+            let refundRef = refund.borrow() ?? panic("bid:could not borrow a reference from the refund capability")
+            assert(refundRef.isInstance(self.bidVaultType), message: "bid:refund capability is not the requested token")
             //Add block height checks
             //900 is 15 minutes in seconds (for timestamp calculations)
             if self.auctionEnd! - Clock.time() <= 900.0 {
@@ -238,20 +365,21 @@ pub contract FractionalVault {
             }
             
             //refund the last bidder
-            self.sendFlow(to: getAccount(self.winning!.address).getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver), value: self.livePrice!);
+            self.sendFungibleToken(to: self.refundCapability!, value: self.livePrice!);
+            //update the refund capability
+            self.refundCapability = refund
             
-            self.livePrice = flowVault.balance
+            self.livePrice = ftVault.balance
             self.winning = bidder
 
             //Deposit the bid into the vault
-            self.bidVault.deposit(from: <- flowVault)
+            self.bidVault.deposit(from: <- ftVault)
             emit Bid(buyer: self.winning!.address, price: self.livePrice!)
         }
 
         pub fun end() {
             pre {
                 self.auctionState == State.live : "end:vault has already closed"
-                
                 Clock.time() >= self.auctionEnd! : "end:auction live"
             }
             
@@ -261,26 +389,28 @@ pub contract FractionalVault {
             // transfer NFT to winner
             let keys = self.underlying.getIDs()
             for key in keys {
-                collection.depositWNFT(token: <- self.underlying.withdrawWNFT(withdrawID: key))
+                collection.deposit(token: <- self.underlying.withdraw(withdrawID: key))
             }
             //change auction state
             self.auctionState = State.ended
 
             if self.settings.feeReceiver != nil {
-                self.sendFlow(to: self.settings.feeReceiver!, value: (self.livePrice! * 0.025))
+                self.sendFungibleToken(to: self.settings.feeReceiver!, value: (self.livePrice! * 0.025))
             }
 
             emit Won(buyer: self.winning!.address, price: self.livePrice!)
         }
 
         /// @notice  function to burn all fractions and receive the underlying
-        pub fun redeem(collection: &Fraction.Collection, amount: UInt256, redeemer: Capability<&{WrappedCollection.WrappedCollectionPublic}>) {
+        pub fun redeem(collection: &Fraction.Collection, amount: UInt256, redeemer: Capability<&{NonFungibleToken.CollectionPublic}>) {
             pre {
                 self.auctionState == State.inactive : "redeem:no redeeming"
                 redeemer.check() == true : "redeem:redeemer's collection capability must be linked"
+                collection.vaultToFractions[self.id]!.length() == Fraction.fractionSupply[self.id]! : "redeem:collection does not contain all fractions"
             }
 
-            assert(collection.vaultToFractions[self.id]!.length() == Fraction.fractionSupply[self.id]!, message: "redeem:collection does not contain all fractions")
+            let bidderRef = redeemer.borrow() ?? panic("redeem:could not borrow a reference for the bidders capability")
+            assert(bidderRef.isInstance(self.underlyingType), message: "redeem:bidder's collection capability does not match the vault")
 
             //burn fractions
             var i: UInt256 = 0
@@ -293,15 +423,13 @@ pub contract FractionalVault {
             }
             
             if Fraction.fractionSupply[self.id]! == 0 {
-                //get capabilit of the winners collection
-                let wrappedCollectionCapability = getAccount(collection.owner!.address).getCapability<&{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath)
-                
-                let wrappedCollection = wrappedCollectionCapability.borrow() ?? panic("redeem:could not borrow a reference to the redeemer's capability")
+
+                let redeemersCollection = redeemer.borrow() ?? panic("redeem:could not borrow a reference to the redeemer's collection capability")
 
                 //transfer NFTs to the owner of the fractions
                 let keys = self.underlying.getIDs()
                 for key in keys {
-                    wrappedCollection.depositWNFT(token: <- self.underlying.withdrawWNFT(withdrawID: key))
+                    redeemersCollection.deposit(token: <- self.underlying.withdraw(withdrawID: key))
                 }
 
                 self.auctionState = State.redeemed
@@ -314,7 +442,13 @@ pub contract FractionalVault {
         pub fun cash(collection: @NonFungibleToken.Collection, collector: Capability<&{FungibleToken.Receiver}>) {
             pre {
                 self.auctionState == State.ended : "cash:vault not closed yet"
+
+                collector.check() == true : "cash:collector capability is not linked"
             }
+            
+            let collectorRef = collector.borrow() 
+            ?? panic("cash:could not borrow a reference from the collector's fungible token capability")
+            assert(collectorRef.isInstance(self.bidVaultType), message: "cash:collector's capability is not the requested token")
 
             let fractions <- collection as! @Fraction.Collection
 
@@ -327,18 +461,11 @@ pub contract FractionalVault {
             destroy fractions
 
             //sendFlow
-            self.sendFlow(to: collector, value: share)
+            self.sendFungibleToken(to: collector, value: share)
 
             emit Cash(owner: collector.address, flow: share)
         }
 
-        //Helper function that allows the minting function to rapidly
-        //swap the old empty collection for
-        access(contract) fun depositCollection(_ collection: @WrappedCollection.Collection){
-            let oldCollection <- self.underlying <- collection
-            destroy oldCollection
-        }
-        
         //Resource destruction
         //Add more logic behind conditions before a vault and other resources are destructed
         destroy() {
@@ -407,21 +534,39 @@ pub contract FractionalVault {
     /// @notice the function to mint a new vault
     /// @param collection the collection for the underlying set of NFTS
     /// @return the ID of the vault
-    pub fun mintVault(collection: @WrappedCollection.Collection, fractionCurator: Address) {
+    pub fun mintVault(
+        collection: @NonFungibleToken.Collection, 
+        collectionType: Type, 
+        bidVault: @FungibleToken.Vault,
+        bidVaultType: Type,
+        curator: Capability<&Fraction.Collection>,
+        maxSupply: UInt64,
+        medias: {UInt64: Media},
+        displays: {UInt64: Display},
+        fractionData: FractionData
+    ) {
 
-        
+        pre {
+            curator.check() == true : "mintVault:curator capability must be linked"
+        }
+
         //Initialize a vault
-        let vault <- create Vault(id: self.vaultCount)
+        let vault <- create Vault(
+            id: self.vaultCount, 
+            underlying: <- collection, 
+            underlyingType: collectionType, 
+            bidVault: <- bidVault, 
+            bidVaultType: bidVaultType,
+            curator: curator,
+            maxSupply: maxSupply,
+            medias: medias,
+            displays: displays,
+            fractionData: fractionData
+        )
 
-        //set fractions Curator
-        vault.setCurator(fractionCurator)
-        //collection must have an owner, otherwise this transaction will revert its execution
-        let curator = getAccount(fractionCurator)
         
-        emit Mint(underlyingOwner: curator.address, vaultId: vault.id);
+        emit Mint(underlyingOwner: vault.curator.address, vaultId: vault.id);
 
-        //deposit the underlying NFTs to the Vault
-        vault.depositCollection(<- collection)
         
         let vaultCollection = getAccount(self.vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
         ?? panic("Could not borrow a reference to the Fractional Vault Collection")
@@ -434,23 +579,39 @@ pub contract FractionalVault {
     /// @notice the function to mint a new vault
     /// @param collection the collection for the underlying set of NFTS
     /// @return the ID of the vault
-    //Change to access account before testnet deployment
-    pub fun mintVaultFractions(vaultId: UInt256){
+    //Change function accesibility 
+    pub fun mintVaultFractions(
+        vaultId: UInt256, 
+        curator: Capability<&Fraction.Collection>,
+    ){
+
+        pre {
+            curator.check() == true : "mintVaultFractions:curator capability must be linked"
+        }
         
         //Get capability for the vault
         let vaultCollection = getAccount(self.vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
         ?? panic("Could not borrow a reference to the Fractional Vault Collection")
 
-        let vault = vaultCollection.borrowVault(id: vaultId)
+        let vault = vaultCollection.borrowVault(id: vaultId) ?? panic("Could not borrow a reference for the given VaultId")
 
+        assert(vault.curator.address == curator.address, message: "this address is not permitted to mint this vault")
+        
         //mint the fractions
-        /**
-         * Separate mint function into smaller cheaper functions
-         */
-        let fractions <- Fraction.mintFractions(amount: 100, vaultId: self.vaultCount - 1)
+        let fractions <- Fraction.mintFractions(
+            amount: 100, 
+            vaultId: self.vaultCount - 1,
+            name: self.vaultToFractionData[self.vaultCount - 1]!.name,
+            thumbnail: self.vaultToFractionData[self.vaultCount - 1]!.thumbnail,
+            description: self.vaultToFractionData[self.vaultCount - 1]!.description,
+            source: self.vaultToFractionData[self.vaultCount - 1]!.source,
+            media: self.vaultToFractionData[self.vaultCount - 1]!.media,
+            contentType: self.vaultToFractionData[self.vaultCount - 1]!.contentType,
+            protocol: self.vaultToFractionData[self.vaultCount - 1]!.protocol
+        )
 
         //capability to deposit fractions to the owner of the underlying NFT
-        let curator =  getAccount(vault!.curator!)
+        let curator =  getAccount(vault.curator.address)
         let fractionCapability = curator.getCapability(Fraction.CollectionPublicPath).borrow<&{Fraction.CollectionPublic}>() 
         ?? panic("Could not borrow a reference to the account receiver")
         //Receive the fractions
@@ -467,6 +628,7 @@ pub contract FractionalVault {
         self.vaultAddress = vaultAddress
         self.vaultCount = 0
         self.settings = Settings()
+        self.vaultToFractionData = {}
 
         self.VaultPublicPath = /public/fractionalVault
         self.VaultStoragePath = /storage/fractionalVault

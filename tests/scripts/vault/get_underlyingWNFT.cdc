@@ -24,10 +24,9 @@ pub fun main(vaultId: UInt256, itemUUID: UInt64): WNFT? {
     //Vault that will be returned
     if let vaultCollection = getAccount(vaultAddress).getCapability<&FractionalVault.VaultCollection{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() {
         if let vault = vaultCollection.borrowVault(id: vaultId) {
-            let underlyingCollection = vault.borrowUnderlying()
-            let underlyingWNFT = underlyingCollection.borrowWNFT(id: itemUUID)
+            let underlyingWNFT = vault.borrowUnderlyingNFT(id: itemUUID) as! auth &WrappedCollection.NFT
             let id = underlyingWNFT.borrowNFT().id
-            return WNFT(id: id, address: underlyingWNFT.getAddress(), collectionPath: underlyingWNFT.getCollectionPath() ,nftType: underlyingWNFT.nestedType())
+            return WNFT(id: id, address: underlyingWNFT.getAddress(), collectionPath: underlyingWNFT.getUnderlyingCollectionPath() ,nftType: underlyingWNFT.nestedType())
         }
     }
     return nil

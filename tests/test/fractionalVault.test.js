@@ -125,10 +125,10 @@ describe("FractionalVault", () => {
         expect(vaultCount).toBe(1)
 
         for(var i = 0; i < 100; i++) {
-            await shallPass(mintVaultFractions(VaultAdmin, vaultCount - 1))
+            await shallPass(mintVaultFractions(Bob, vaultCount - 1))
         }
         //Tying to mint after 10k fractions will revert
-        await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
+        await shallRevert(mintVaultFractions(Bob, vaultCount - 1))
         
         //Get total supply
         const totalSupply = await getTotalSupply()
@@ -153,7 +153,6 @@ describe("FractionalVault", () => {
         expect(vault.livePrice).toBe(null)
         expect(vault.winning).toBe(null)
         expect(vault.auctionState).toBe(0)
-        expect(vault.resourceID).toBe(41)
         expect(vault.vaultAddress).toBe('0x179b6b1cb6755e31')
         //console.log("Vault: ", vault)
         //getunderlying collection ids
@@ -173,7 +172,7 @@ describe("FractionalVault", () => {
         //console.log("WNFT: ", wnft)
         //get underlying NFT
         const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(0)
+        expect(nft.id).toBe(35)
         //console.log("NFT: ", nft)
 
 	});
@@ -200,10 +199,10 @@ describe("FractionalVault", () => {
         expect(vaultCount).toBe(1)
         //Bob mints and the recipient (in this case, Bob himself) gets the fractions
         for(var i = 0; i < 100; i++) {
-            await shallPass(mintVaultFractions(VaultAdmin, vaultCount - 1))
+            await shallPass(mintVaultFractions(Bob, vaultCount - 1))
         }
         //Tying to mint after 10k fractions will revert
-        await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
+        await shallRevert(mintVaultFractions(Bob, vaultCount - 1))
         
         //Get total supply
         let totalSupply = await getTotalSupply()
@@ -228,7 +227,6 @@ describe("FractionalVault", () => {
         expect(vault.livePrice).toBe(null)
         expect(vault.winning).toBe(null)
         expect(vault.auctionState).toBe(0)
-        expect(vault.resourceID).toBe(41)
         expect(vault.vaultAddress).toBe('0x179b6b1cb6755e31')
         //console.log("Vault: ", vault)
         //getunderlying collection ids
@@ -248,7 +246,7 @@ describe("FractionalVault", () => {
         //console.log("WNFT: ", wnft)
         //get underlying NFT
         let nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(0)
+        expect(nft.id).toBe(35)
         //console.log("NFT: ", nft)
 
         await shallPass(mintExampleNFT(Bob, Bob))
@@ -260,10 +258,10 @@ describe("FractionalVault", () => {
         expect(vaultCount).toBe(2)
 
         for(var i = 0; i < 100; i++) {
-            await shallPass(mintVaultFractions(VaultAdmin, vaultCount - 1))
+            await shallPass(mintVaultFractions(Bob, vaultCount - 1))
         }
         //Tying to mint after 10k fractions will revert
-        await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
+        await shallRevert(mintVaultFractions(Bob, vaultCount - 1))
 
         //Get total supply
         totalSupply = await getTotalSupply()
@@ -288,7 +286,6 @@ describe("FractionalVault", () => {
         expect(vault2.livePrice).toBe(null)
         expect(vault2.winning).toBe(null)
         expect(vault2.auctionState).toBe(0)
-        expect(vault2.resourceID).toBe(10148)
         expect(vault2.vaultAddress).toBe('0x179b6b1cb6755e31')
 
         //getunderlying collection ids
@@ -307,8 +304,6 @@ describe("FractionalVault", () => {
         //console.log("Bob", Bob)
         //console.log("WNFT: ", wnft)
         //get underlying NFT
-        nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(1)
 
 	});
 
@@ -337,10 +332,10 @@ describe("FractionalVault", () => {
         expect(vaultCount).toBe(1)
 
         for(var i = 0; i < 100; i++) {
-            await shallPass(mintVaultFractions(VaultAdmin, vaultCount - 1))
+            await shallPass(mintVaultFractions(Bob, vaultCount - 1))
         }
         //Tying to mint after 10k fractions will revert
-        await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
+        await shallRevert(mintVaultFractions(Bob, vaultCount - 1))
         
         //Get total supply
         const totalSupply = await getTotalSupply()
@@ -365,7 +360,6 @@ describe("FractionalVault", () => {
         expect(vault.livePrice).toBe(null)
         expect(vault.winning).toBe(null)
         expect(vault.auctionState).toBe(0)
-        expect(vault.resourceID).toBe(43)
         expect(vault.vaultAddress).toBe('0x179b6b1cb6755e31')
 
         //getunderlying collection ids
@@ -387,8 +381,7 @@ describe("FractionalVault", () => {
         //get underlying NFT
         const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
         const nft2 = await getUnderlyingNFT(vaultCount - 1, underlyingIds[1])
-        expect(nft.id).toBe(0)
-        expect(nft2.id).toBe(1)
+        expect(nft.id).toBe(35)
 
 	});
 
@@ -416,10 +409,10 @@ describe("FractionalVault", () => {
         expect(vaultCount).toBe(1)
 
         for(var i = 0; i < 100; i++) {
-            await shallPass(mintVaultFractions(VaultAdmin, vaultCount - 1))
+            await shallPass(mintVaultFractions(Bob, vaultCount - 1))
         }
         //Tying to mint after 10k fractions will revert
-        await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
+        await shallRevert(mintVaultFractions(Bob, vaultCount - 1))
         
         // Checking contract variables/info 
         //Get total supply
@@ -441,7 +434,6 @@ describe("FractionalVault", () => {
         expect(vault.livePrice).toBe(null)
         expect(vault.winning).toBe(null)
         expect(vault.auctionState).toBe(0)
-        expect(vault.resourceID).toBe(44)
         expect(vault.vaultAddress).toBe('0x179b6b1cb6755e31')
         //console.log("Vault: ", vault)
         //getunderlying collection ids
@@ -461,7 +453,7 @@ describe("FractionalVault", () => {
         //console.log("WNFT: ", wnft)
         //get underlying NFT
         const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(0)
+        expect(nft.id).toBe(38)
         //console.log("NFT: ", nft)
 
         await updatePrice(Bob, vaultCount - 1, 0, 100, 100)
@@ -473,7 +465,7 @@ describe("FractionalVault", () => {
         //console.log("Bid vault balance is: ", bidVaultBalance)
         //Mint Alice the big bucks so he can buyout the vault
         await mintFlow(Alice, "1000.0")
-        await shallPass(setupWrappedCollectionOnAccount(Alice));
+        await shallPass(setupExampleNFTOnAccount(Alice));
         //Calling start will fail because the bid is to low
         await shallRevert(start(Alice, vaultCount - 1, 99))
         //Calling start will fail because the number of fractions voting for a reserve price >= 50% of supply
@@ -507,7 +499,7 @@ describe("FractionalVault", () => {
         //Get Carol's balance
         let carolsBalance = await getFlowBalance(Carol)
         //console.log("Carol's balance: ", carolsBalance)
-        await shallPass(setupWrappedCollectionOnAccount(Carol));
+        await shallPass(setupExampleNFTOnAccount(Carol));
 
         bidVaultBalance = await getBidVaultBalance(vaultCount - 1)
         //console.log("Bid vault balance is: ", bidVaultBalance)
@@ -591,10 +583,10 @@ describe("FractionalVault", () => {
         expect(vaultCount).toBe(1)
 
         for(var i = 0; i < 100; i++) {
-            await shallPass(mintVaultFractions(VaultAdmin, vaultCount - 1))
+            await shallPass(mintVaultFractions(Bob, vaultCount - 1))
         }
         //Tying to mint after 10k fractions will revert
-        await shallRevert(mintVaultFractions(VaultAdmin, vaultCount - 1))
+        await shallRevert(mintVaultFractions(Bob, vaultCount - 1))
         
         /** Checking contract variables/info */
         //Get total supply
@@ -617,7 +609,6 @@ describe("FractionalVault", () => {
         expect(vault.livePrice).toBe(null)
         expect(vault.winning).toBe(null)
         expect(vault.auctionState).toBe(0)
-        expect(vault.resourceID).toBe(41)
         expect(vault.vaultAddress).toBe('0x179b6b1cb6755e31')
         //console.log("Vault: ", vault)
         //getunderlying collection ids
@@ -637,7 +628,7 @@ describe("FractionalVault", () => {
         //console.log("WNFT: ", wnft)
         //get underlying NFT
         const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(0)
+        expect(nft.id).toBe(35)
         //console.log("NFT: ", nft)
 
         var bobscollectionids = await getFractionCollectionIds(Bob)
