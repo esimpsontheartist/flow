@@ -6,6 +6,8 @@ import NonFungibleToken from "./NonFungibleToken.cdc"
 // A fixed price sale for Fractions that utilizes lazy minting
 pub contract FractionFixedPriceSale {
 
+    pub event ContractInitialized()
+
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
 
@@ -123,20 +125,13 @@ pub contract FractionFixedPriceSale {
             
             let fractions <- Fraction.mintFractions(
                 amount: self.amount, 
-                vaultId: FractionalVault.vaultToFractionData[self.vaultId]!.vaultId, 
-                name: FractionalVault.vaultToFractionData[self.vaultId]!.name, 
-                thumbnail: FractionalVault.vaultToFractionData[self.vaultId]!.thumbnail, 
-                description: FractionalVault.vaultToFractionData[self.vaultId]!.description, 
-                source: FractionalVault.vaultToFractionData[self.vaultId]!.source, 
-                media: FractionalVault.vaultToFractionData[self.vaultId]!.media, 
-                contentType: FractionalVault.vaultToFractionData[self.vaultId]!.contentType, 
-                protocol: FractionalVault.vaultToFractionData[self.vaultId]!.protocol
+                vaultId: self.vaultId, 
             )
 
             FractionFixedPriceSale.sales[self.id] = SaleData(
                 self.id,
                 self.salePrice,
-                FractionalVault.vaultToFractionData[self.vaultId]!,
+                Fraction.vaultToFractionData[self.vaultId]!,
                 fractions.getIDs(),
                 self.receiver.address
             )
@@ -157,10 +152,10 @@ pub contract FractionFixedPriceSale {
     pub resource interface FixedSaleCollectionPublic {
         pub fun purchaseListing(listingId: UInt64, buyTokens: @FungibleToken.Vault): @Fraction.Collection
         pub fun getIDs(): [UInt64]
-        pub fun getMetadata(saleId: UInt64): FractionalVault.FractionData
+        pub fun getMetadata(saleId: UInt64): Fraction.FractionData
     }
 
-    pub resource FixedSaleCollection {
+    pub resource FixedSaleCollection:  FixedSaleCollectionPublic {
 
         pub var forSale: @{UInt64: Sale}
 
@@ -196,7 +191,7 @@ pub contract FractionFixedPriceSale {
                     let listingData = FractionFixedPriceSale.ListingData(
                         listing.id,
                         vaultId,
-                        FractionalVault.vaultToFractionData[vaultId]!,
+                        Fraction.vaultToFractionData[vaultId]!,
                         curator.address,
                         amount,
                         salePrice,
@@ -238,7 +233,7 @@ pub contract FractionFixedPriceSale {
              let listingData = FractionFixedPriceSale.ListingData(
                 listing.id,
                 listing.vaultId,
-                FractionalVault.vaultToFractionData[listing.vaultId]!,
+                Fraction.vaultToFractionData[listing.vaultId]!,
                 listing.curator.address,
                 listing.amount,
                 listing.salePrice,
@@ -253,6 +248,10 @@ pub contract FractionFixedPriceSale {
 
         pub fun getIDs(): [UInt64] {
             return self.forSale.keys
+        }
+
+        pub fun getMetadata(saleId: UInt64): Fraction.FractionData {
+            return FractionFixedPriceSale.sales[saleId]!.fraction
         }
 
         init(){
@@ -275,6 +274,8 @@ pub contract FractionFixedPriceSale {
 
         self.CollectionPublicPath= /public/fractionFixedPriceSale
         self.CollectionStoragePath= /storage/fractionFixedPriceSale
+
+        emit ContractInitialized()
     }
 
 }

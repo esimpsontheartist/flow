@@ -53,11 +53,20 @@ export const setupVaultOnAccount = async (account) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const mintVault = async (underlyingOwner, nftIds, recipient) => {
+export const mintVault = async (
+	account, 
+	nftIds, 
+	curator, 
+	maxSupply
+) => {
 
 	const name = "vault/mint_vault";
-	const args = [nftIds, recipient];
-	const signers = [underlyingOwner];
+	const args = [
+		nftIds, 
+		curator, 
+		maxSupply
+	];
+	const signers = [account];
 
 	return sendTransaction({ name, args, signers, limit: 9999 });
 };
@@ -289,26 +298,6 @@ export const getUnderlyingCollectionIds = async (vaultId) => {
  * */
 export const getUnderlyingNFT = async (vaultId, itemUUID) => {
 	const name = "vault/get_underlyingNFT";
-	const args = [vaultId, itemUUID];
-
-	return executeScript({ name, args });
-};
-
-/*
- * Returns a WNFT (Wrapped NFT, defined in WrappedCollection.cdc)
- * @param {UInt256} vaultId - the vaults id
- * @param {UInt64} itemUUID - the nft's UUID
- * @throws Will throw an error if execution will be halted
- * @returns {WNFT?}
- * NFT = {
- * 	id: UInt64
- *  address: Address
- *  nftType: Type
- *  collectionPath: PublicPath
- * }
- * */
-export const getUnderlyingWNFT = async (vaultId, itemUUID) => {
-	const name = "vault/get_underlyingWNFT";
 	const args = [vaultId, itemUUID];
 
 	return executeScript({ name, args });

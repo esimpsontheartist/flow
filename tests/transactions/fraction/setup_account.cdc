@@ -14,7 +14,11 @@ transaction {
             signer.save(<-collection, to: Fraction.CollectionStoragePath)
 
             // create a public capability for the collection
-            signer.link<&Fraction.Collection{NonFungibleToken.CollectionPublic, Fraction.CollectionPublic}>(Fraction.CollectionPublicPath, target: Fraction.CollectionStoragePath)
+            signer.link<&Fraction.Collection{NonFungibleToken.CollectionPublic, Fraction.CollectionPublic}>
+            (Fraction.CollectionPublicPath, target: Fraction.CollectionStoragePath)
+
+            // create a private capability for the collection
+            signer.link<&Fraction.Collection>(Fraction.CollectionPrivatePath, target: Fraction.CollectionStoragePath)
         }
     }
 }

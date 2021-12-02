@@ -41,6 +41,35 @@ export const setupFractionOnAccount = async (account) => {
 	return sendTransaction({ name, signers });
 };
 
+// Calling the setVaultFractionData
+export const setVaultFractionData = async(
+	account, 
+	vaultId,
+	name,
+    thumbnail,
+    description,
+    source,
+    media,
+    contentType,
+    protocol
+) => {
+	
+	const transaction_name = "fraction/set_fractionData";
+	const args = [
+		vaultId, 
+		name,
+		thumbnail,
+		description,
+		source,
+		media,
+		contentType,
+		protocol
+	];
+	const signers = [account];
+
+	return sendTransaction({ name: transaction_name, args, signers});
+}
+
 /*
  * Transfers an **amount** of Fractions from **sender** account to **recipient**.
  * @param {string} sender - sender address

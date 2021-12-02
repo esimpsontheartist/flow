@@ -8,7 +8,7 @@ pub fun main(vaultId: UInt256): [UInt64]? {
     //Vault that will be returned
     if let vaultCollection = getAccount(vaultAddress).getCapability<&FractionalVault.VaultCollection{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() {
         if let vault = vaultCollection.borrowVault(id: vaultId) {
-            let underlying = vault.borrowCollection()
+            let underlying = vault.borrowFractionCollection()
             return underlying.getIDs()
         }
     }

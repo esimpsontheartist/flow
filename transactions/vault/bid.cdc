@@ -1,4 +1,4 @@
-import FungibleToken from "../../contracts/FungibleToken.cdc"
+import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
 import FungibleToken from "../../contracts/FungibleToken.cdc"
 import FlowToken from "../../contracts/FlowToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
@@ -12,8 +12,10 @@ transaction(vaultId: UInt256, amount: UFix64) {
     let fractionalVault: &FractionalVault.Vault
     //Vault used to kickoff the auction
     let sentVault: @FungibleToken.Vault
-    //Address that places the bids
-    let bidder: Capability<&{WrappedCollection.WrappedCollectionPublic}>
+    //Capability for the bidder to potentially receive the underlying
+    let bidder: Capability<&{NonFungibleToken.CollectionPublic}>
+    //Capability for the bidder to receive a refund if their bid does not win the auction
+    let refund: Capability<&{FungibleToken.Receiver}>
 
     prepare(signer: AuthAccount){
         let vaultAddress = FractionalVault.vaultAddress
@@ -24,17 +26,23 @@ transaction(vaultId: UInt256, amount: UFix64) {
             
         self.fractionalVault = vaultCollection.borrowVault(id: vaultId) 
             ?? panic("Could not get a refernce to a vault with the given id")
-            
+        
+        self.refund = signer.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+
         let vaultRef = signer.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault)
             ?? panic("Could not borrow reference to the owner's Vault!")
 
         self.sentVault <- vaultRef.withdraw(amount: amount)
 
-        self.bidder = signer.getCapability<&{WrappedCollection.WrappedCollectionPublic}>(WrappedCollection.WrappedCollectionPublicPath)
+        self.bidder = signer.getCapability<&{NonFungibleToken.CollectionPublic}>(WrappedCollection.CollectionPublicPath)
     }
 
     execute {
-        self.fractionalVault.bid(<- self.sentVault, self.bidder)
+        self.fractionalVault.bid(
+            ftVault: <- self.sentVault, 
+            refund: self.refund,
+            bidder: self.bidder
+        )
     }
 
 }

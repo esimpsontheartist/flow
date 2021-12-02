@@ -1,16 +1,17 @@
 import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
+import WrappedCollection from "../../contracts/WrappedCollection.cdc"
 
 // a transaction to call the redeem() function in order to receive the underlying after
-transaction(vaultId: UInt256) {
+transaction(vaultId: UInt256, amount: UInt256) {
 
     //Reference to the signers Fraction collection
     let usersCollection: &Fraction.Collection
     //Address where the vaults are stored
     let fractionalVault: &FractionalVault.Vault
-    //Vault used to kickoff the auction
-    let sentCollection: @NonFungibleToken.Collection
+    //Capability that places the bids
+    let redeemer: Capability<&{NonFungibleToken.CollectionPublic}>
 
     prepare(signer: AuthAccount){
         let vaultAddress = FractionalVault.vaultAddress
@@ -25,23 +26,15 @@ transaction(vaultId: UInt256) {
         self.usersCollection = signer.borrow<&Fraction.Collection>(from: Fraction.CollectionStoragePath)
             ?? panic("Could not borrow reference to the owner's Vault!")
 
-
-        self.sentCollection <- Fraction.createEmptyCollection()
-
+        self.redeemer = signer.getCapability<&{NonFungibleToken.CollectionPublic}>(WrappedCollection.CollectionPublicPath)
     }
 
     execute {
-        let fractionIds = self.usersCollection.vaultToFractions[vaultId]!.values()
-
-        if fractionIds.length == 0 {
-            return
-        }
-
-        for id in fractionIds {
-            self.sentCollection.deposit(token: <- self.usersCollection.withdraw(withdrawID: id))
-        }
-
-        self.fractionalVault.redeem(<- self.sentCollection)
+        self.fractionalVault.redeem(
+            collection: self.usersCollection, 
+            amount: amount, 
+            redeemer: self.redeemer
+        )
     }
 
 }

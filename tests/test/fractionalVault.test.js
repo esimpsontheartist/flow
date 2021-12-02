@@ -4,19 +4,12 @@ import {
     emulator, 
     init,
     mintFlow,
-    getServiceAddress,
-    deployContract,
-    executeScript,
-    getAccountAddress,
     shallPass,
-    shallResolve,
     shallRevert, 
-    shallThrow,
     getFlowBalance
 } from "flow-js-testing";
 import { getVaultAdminAddress, getVaultAddress, getBobsAddress, getAlicesAddress, getCarolsAddress, getDicksAddress } from "../src/common";
 import {
-    deployFraction,
     setupFractionOnAccount,
     transferFractions,
     getCollectionBalance,
@@ -25,7 +18,7 @@ import {
     getFractionSupply,
     getFractionsByVault,
     getTotalSupply,
-    getFraction
+    setVaultFractionData
 
 } from "../src/fraction"
 import { 
@@ -53,7 +46,6 @@ import {
     getFractionIds,
     getUnderlyingCollectionIds,
     getUnderlyingNFT,
-    getUnderlyingWNFT,
     mintVaultFractions,
     getReserveInfo,
     tickClock
@@ -61,6 +53,7 @@ import {
 
 import {
     setupWrappedCollectionOnAccount,
+    wrap,
     getWNFTCollectionIds, 
     getWNFT
 } from "../src/wnft"
@@ -114,16 +107,45 @@ describe("FractionalVault", () => {
         await mintFlow(Bob, "10.0")
         await shallPass(setupExampleNFTOnAccount(Bob))
         await shallPass(mintExampleNFT(Bob, Bob))
-        let ids = await getExampleNFTCollectionIds(Bob)
         const VaultAddress = await getVaultAddress()
         await shallPass(setupVaultOnAccount(VaultAddress));
         //setup fraction collection
         await shallPass(setupFractionOnAccount(Bob))
+        //Bob sets up a wrapped collection
+        await shallPass(setupWrappedCollectionOnAccount(Bob))
+        //Bob wraps his example NFT
+        let ids = await getExampleNFTCollectionIds(Bob)
+        await shallPass(wrap(Bob, ids))
         //Bob mints a vault
-        await shallPass(mintVault(Bob, ids, Bob))
+
+        let wrappedIds = await getWNFTCollectionIds(Bob)
+        
+        await shallPass(
+            mintVault(
+                Bob, 
+                wrappedIds,
+                Bob,
+                10000
+            )
+        )
+
         let vaultCount = await getVaultCount()
         expect(vaultCount).toBe(1)
 
+        await shallPass(
+            setVaultFractionData(
+                VaultAdmin,
+                0,
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "image/jpeg",
+                "http",
+                "Example Doge",
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "An example NFT for testing purposes",
+                "ExampleNFT"
+            )
+        )
+        
         for(var i = 0; i < 100; i++) {
             await shallPass(mintVaultFractions(Bob, vaultCount - 1))
         }
@@ -164,15 +186,10 @@ describe("FractionalVault", () => {
         const fractionIds = await getFractionIds(vaultCount - 1)
         //console.log("Fraction Ids:", fractionIds)
         expect(fractionIds.length).toBe(0)
-        //get underlying WNFT
-        const wnft = await getUnderlyingWNFT(vaultCount - 1, underlyingIds[0])
-        expect(wnft.id).toBe(0)
-        expect(wnft.address).toBe(Bob)
         //console.log("Bob", Bob)
-        //console.log("WNFT: ", wnft)
         //get underlying NFT
         const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(35)
+        expect(nft.id).toBe(37)
         //console.log("NFT: ", nft)
 
 	});
@@ -188,16 +205,45 @@ describe("FractionalVault", () => {
         await mintFlow(Bob, "10.0")
         await shallPass(setupExampleNFTOnAccount(Bob))
         await shallPass(mintExampleNFT(Bob, Bob))
-        let ids = await getExampleNFTCollectionIds(Bob)
         const VaultAddress = await getVaultAddress()
         await shallPass(setupVaultOnAccount(VaultAddress));
         //setup fraction collection
         await shallPass(setupFractionOnAccount(Bob))
+        //Bob sets up a wrapped collection
+        await shallPass(setupWrappedCollectionOnAccount(Bob))
+        //Bob wraps his example NFT
+        let ids = await getExampleNFTCollectionIds(Bob)
+        await shallPass(wrap(Bob, ids))
         //Bob mints a vault
-        await shallPass(mintVault(Bob, ids, Bob))
+
+        let wrappedIds = await getWNFTCollectionIds(Bob)
+
+        //Bob mints a vault
+        await shallPass(
+            mintVault(
+                Bob, 
+                wrappedIds, 
+                Bob,
+                10000
+            )
+        )
         let vaultCount = await getVaultCount()
         expect(vaultCount).toBe(1)
-        //Bob mints and the recipient (in this case, Bob himself) gets the fractions
+
+        await shallPass(
+            setVaultFractionData(
+                VaultAdmin,
+                0,
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "image/jpeg",
+                "http",
+                "Example Doge",
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "An example NFT for testing purposes",
+                "ExampleNFT"
+            )
+        )
+
         for(var i = 0; i < 100; i++) {
             await shallPass(mintVaultFractions(Bob, vaultCount - 1))
         }
@@ -238,24 +284,43 @@ describe("FractionalVault", () => {
         let fractionIds = await getFractionIds(vaultCount - 1)
         //console.log("Fraction Ids:", fractionIds)
         expect(fractionIds.length).toBe(0)
-        //get underlying WNFT
-        let wnft = await getUnderlyingWNFT(vaultCount - 1, underlyingIds[0])
-        expect(wnft.id).toBe(0)
-        expect(wnft.address).toBe(Bob)
         //console.log("Bob", Bob)
-        //console.log("WNFT: ", wnft)
         //get underlying NFT
         let nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(35)
-        //console.log("NFT: ", nft)
+        expect(nft.id).toBe(37)
 
         await shallPass(mintExampleNFT(Bob, Bob))
         ids = await getExampleNFTCollectionIds(Bob)
 
+        await shallPass(wrap(Bob, ids))
+        //Bob mints a vault
+
+        wrappedIds = await getWNFTCollectionIds(Bob)
         //Bob mints another vault
-        await shallPass(mintVault(Bob, ids, Bob))
+        await shallPass(
+            mintVault(
+                Bob, 
+                wrappedIds, 
+                Bob,
+                10000
+            )
+        )
         vaultCount = await getVaultCount()
         expect(vaultCount).toBe(2)
+        
+        await shallPass(
+            setVaultFractionData(
+                VaultAdmin,
+                1,
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "image/jpeg",
+                "http",
+                "Example Doge",
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "An example NFT for testing purposes",
+                "ExampleNFT"
+            )
+        )
 
         for(var i = 0; i < 100; i++) {
             await shallPass(mintVaultFractions(Bob, vaultCount - 1))
@@ -297,91 +362,8 @@ describe("FractionalVault", () => {
         fractionIds = await getFractionIds(vaultCount - 1)
         //console.log("Fraction Ids:", fractionIds)
         expect(fractionIds.length).toBe(0)
-        //get underlying WNFT
-        wnft = await getUnderlyingWNFT(vaultCount - 1, underlyingIds[0])
-        expect(wnft.id).toBe(1)
-        expect(wnft.address).toBe(Bob)
         //console.log("Bob", Bob)
-        //console.log("WNFT: ", wnft)
         //get underlying NFT
-
-	});
-
-    //minting a vault with multiple nfts
-    it("should be able to mint a vault with multiple NFTs", async () => {
-		// Setup
-		await deployFractionalVault();
-        const VaultAdmin = await getVaultAdminAddress()
-		await deployExampleNFT(VaultAdmin);
-        const Bob = await getBobsAddress()
-        //Mint flow to Bob
-        await mintFlow(Bob, "10.0")
-        await shallPass(setupExampleNFTOnAccount(Bob))
-        //mint 2 NFTs to Bob
-        await shallPass(mintExampleNFT(Bob, Bob))
-        await shallPass(mintExampleNFT(Bob, Bob))
-
-        let ids = await getExampleNFTCollectionIds(Bob)
-        const VaultAddress = await getVaultAddress()
-        await shallPass(setupVaultOnAccount(VaultAddress));
-        //setup fraction collection
-        await shallPass(setupFractionOnAccount(Bob))
-        //Bob mints a vault
-        await shallPass(mintVault(Bob, ids, Bob))
-        let vaultCount = await getVaultCount()
-        expect(vaultCount).toBe(1)
-
-        for(var i = 0; i < 100; i++) {
-            await shallPass(mintVaultFractions(Bob, vaultCount - 1))
-        }
-        //Tying to mint after 10k fractions will revert
-        await shallRevert(mintVaultFractions(Bob, vaultCount - 1))
-        
-        //Get total supply
-        const totalSupply = await getTotalSupply()
-        expect(totalSupply).toBe(10000)
-        //get fraction supply
-        const totalFractionSupply = await getFractionSupply(vaultCount - 1)
-        expect(totalFractionSupply).toBe(10000)
-        //get collection balance
-        const collectionBalance = await getCollectionBalance(Bob)
-        expect(collectionBalance).toBe(10000)
-        //get collection ids
-        const collectionids = await getFractionCollectionIds(Bob)
-        for(var i = 0; i < 10000; i++) {
-            expect(collectionids[i]).toBe(i)
-        }
-        
-        //get the vault
-        const vault = await getVault(vaultCount - 1)
-        expect(vault.vaultId).toBe(0)
-        expect(vault.auctionEnd).toBe(null)
-        expect(vault.auctionLength).toBe("172800.00000000")
-        expect(vault.livePrice).toBe(null)
-        expect(vault.winning).toBe(null)
-        expect(vault.auctionState).toBe(0)
-        expect(vault.vaultAddress).toBe('0x179b6b1cb6755e31')
-
-        //getunderlying collection ids
-        const underlyingIds = await getUnderlyingCollectionIds(vaultCount - 1)
-        //number of NFTS in the vault
-        expect(underlyingIds.length).toBe(2)
-
-        //get fraction ids
-        const fractionIds = await getFractionIds(vaultCount - 1)
-        expect(fractionIds.length).toBe(0)
-
-        //get underlying WNFT
-        const wnft = await getUnderlyingWNFT(vaultCount - 1, underlyingIds[0])
-        const wnft2 = await getUnderlyingWNFT(vaultCount - 1, underlyingIds[1])
-        expect(wnft.id).toBe(0)
-        expect(wnft.address).toBe(Bob)
-        expect(wnft2.id).toBe(1)
-        expect(wnft2.address).toBe(Bob)
-        //get underlying NFT
-        const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        const nft2 = await getUnderlyingNFT(vaultCount - 1, underlyingIds[1])
-        expect(nft.id).toBe(35)
 
 	});
 
@@ -398,15 +380,44 @@ describe("FractionalVault", () => {
         await mintFlow(Bob, "10.0")
         await shallPass(setupExampleNFTOnAccount(Bob))
         await shallPass(mintExampleNFT(Bob, Bob))
-        let ids = await getExampleNFTCollectionIds(Bob)
         const VaultAddress = await getVaultAddress()
         await shallPass(setupVaultOnAccount(VaultAddress));
         //setup fraction collection
         await shallPass(setupFractionOnAccount(Bob))
+        //Bob sets up a wrapped collection
+        await shallPass(setupWrappedCollectionOnAccount(Bob))
+        //Bob wraps his example NFT
+        let ids = await getExampleNFTCollectionIds(Bob)
+        await shallPass(wrap(Bob, ids))
         //Bob mints a vault
-        await shallPass(mintVault(Bob, ids, Bob))
+
+        let wrappedIds = await getWNFTCollectionIds(Bob)
+        
+        //Bob mints a vault
+        await shallPass(
+            mintVault(
+                Bob, 
+                wrappedIds, 
+                Bob,
+                10000
+            )
+        )
         let vaultCount = await getVaultCount()
         expect(vaultCount).toBe(1)
+
+        await shallPass(
+            setVaultFractionData(
+                VaultAdmin,
+                0,
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "image/jpeg",
+                "http",
+                "Example Doge",
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "An example NFT for testing purposes",
+                "ExampleNFT"
+            )
+        )
 
         for(var i = 0; i < 100; i++) {
             await shallPass(mintVaultFractions(Bob, vaultCount - 1))
@@ -445,15 +456,10 @@ describe("FractionalVault", () => {
         const fractionIds = await getFractionIds(vaultCount - 1)
         //console.log("Fraction Ids:", fractionIds)
         expect(fractionIds.length).toBe(0)
-        //get underlying WNFT
-        const wnft = await getUnderlyingWNFT(vaultCount - 1, underlyingIds[0])
-        expect(wnft.id).toBe(0)
-        expect(wnft.address).toBe(Bob)
         //console.log("Bob", Bob)
-        //console.log("WNFT: ", wnft)
         //get underlying NFT
         const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(38)
+        expect(nft.id).toBe(40)
         //console.log("NFT: ", nft)
 
         await updatePrice(Bob, vaultCount - 1, 0, 100, 100)
@@ -479,8 +485,9 @@ describe("FractionalVault", () => {
         //console.log("Reserve Info: ", reserveInfo)
         //Get Alice's balance
         let alicesBalance = await getFlowBalance(Alice)
-        //console.log("Alice's balance: ", alicesBalance)
-        //Starting the auction succeeds
+        
+        await shallPass(setupWrappedCollectionOnAccount(Alice))
+
         await shallPass(start(Alice, vaultCount - 1, 100))
 
         bidVaultBalance = await getBidVaultBalance(vaultCount - 1)
@@ -504,6 +511,8 @@ describe("FractionalVault", () => {
         bidVaultBalance = await getBidVaultBalance(vaultCount - 1)
         //console.log("Bid vault balance is: ", bidVaultBalance)
 
+        await shallPass(setupWrappedCollectionOnAccount(Carol))
+
         await shallPass(bid(Carol, vaultCount - 1, 200))
         
         carolsBalance = await getFlowBalance(Carol)
@@ -514,12 +523,11 @@ describe("FractionalVault", () => {
 
         //Alice bids more
         alicesBalance = await getFlowBalance(Alice)
-        //console.log("Alice's balance: ", alicesBalance)
+
         await shallPass(bid(Alice, vaultCount - 1, 300))
         alicesBalance = await getFlowBalance(Alice)
-        //console.log("Alice's balance: ", alicesBalance)
+
         bidVaultBalance = await getBidVaultBalance(vaultCount - 1)
-        //console.log("Bid vault balance is: ", bidVaultBalance)
 
         //Bob transfers some fractions to Dick
         const Dick = await getDicksAddress()
@@ -577,10 +585,39 @@ describe("FractionalVault", () => {
         await shallPass(setupVaultOnAccount(VaultAddress));
         //setup fraction collection
         await shallPass(setupFractionOnAccount(Bob))
+        //Bob sets up a wrapped collection
+        await shallPass(setupWrappedCollectionOnAccount(Bob))
+        //Bob wraps his example NFT
+        await shallPass(wrap(Bob, ids))
         //Bob mints a vault
-        await shallPass(mintVault(Bob, ids, Bob))
+
+        let wrappedIds = await getWNFTCollectionIds(Bob)
+        //Bob mints a vault
+        await shallPass(
+            mintVault(
+                Bob, 
+                wrappedIds, 
+                Bob,
+                10000
+            )
+        )
+
         let vaultCount = await getVaultCount()
         expect(vaultCount).toBe(1)
+        
+        await shallPass(
+            setVaultFractionData(
+                VaultAdmin,
+                0,
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "image/jpeg",
+                "http",
+                "Example Doge",
+                "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+                "An example NFT for testing purposes",
+                "ExampleNFT"
+            )
+        )
 
         for(var i = 0; i < 100; i++) {
             await shallPass(mintVaultFractions(Bob, vaultCount - 1))
@@ -620,15 +657,10 @@ describe("FractionalVault", () => {
         const fractionIds = await getFractionIds(vaultCount - 1)
         //console.log("Fraction Ids:", fractionIds)
         expect(fractionIds.length).toBe(0)
-        //get underlying WNFT
-        const wnft = await getUnderlyingWNFT(vaultCount - 1, underlyingIds[0])
-        expect(wnft.id).toBe(0)
-        expect(wnft.address).toBe(Bob)
         //console.log("Bob", Bob)
-        //console.log("WNFT: ", wnft)
         //get underlying NFT
         const nft = await getUnderlyingNFT(vaultCount - 1, underlyingIds[0])
-        expect(nft.id).toBe(35)
+        expect(nft.id).toBe(37)
         //console.log("NFT: ", nft)
 
         var bobscollectionids = await getFractionCollectionIds(Bob)
@@ -650,14 +682,9 @@ describe("FractionalVault", () => {
         //console.log("Bob's wrapped NFT collection ids: ", bobswrappedCollectionIds)
         //console.log("Id: ", bobswrappedCollectionIds[0])
         let redeemedWnft = await getWNFT(Bob, bobswrappedCollectionIds[0])
-        //console.log("WNFT: ", redeemedWnft)
+        console.log("WNFT: ", redeemedWnft)
         
-        //unwrap the underlying NFT
 	});
     
-
-    /** ADD PRE AND POST CHECKS TO CONTRACTS */
-    
-    //Look at core contracts for other things I should test
 
 })

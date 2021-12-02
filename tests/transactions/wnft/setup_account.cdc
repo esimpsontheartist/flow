@@ -14,7 +14,7 @@ transaction {
             signer.save(<-collection, to: WrappedCollection.CollectionStoragePath)
 
             // create a public capability for the collection
-            signer.link<&WrappedCollection.Collection{WrappedCollection.CollectionPublic}>(WrappedCollection.CollectionPublicPath, target: WrappedCollection.CollectionStoragePath)
+            signer.link<&WrappedCollection.Collection{WrappedCollection.CollectionPublic, NonFungibleToken.CollectionPublic}>(WrappedCollection.CollectionPublicPath, target: WrappedCollection.CollectionStoragePath)
         }
     }
 }

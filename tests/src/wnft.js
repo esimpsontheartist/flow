@@ -38,6 +38,16 @@ export const setupWrappedCollectionOnAccount = async (account) => {
 	return sendTransaction({ name, signers });
 };
 
+
+//Wraps an ExampleNFT as a Wrapped NFT
+export const wrap = async(account, nftIds) => {
+	const name = "wnft/wrap";
+	const args = [nftIds]
+	const signers = [account]
+
+	return sendTransaction({ name, args, signers, limit: 9999 });
+}	
+
 /*
  * Returns an array with all the wnft ids owned by an account
  * @param {Address} - address
@@ -67,5 +77,6 @@ export const getWNFT = async (address, itemID) => {
 
 	return executeScript({ name, args });
 };
+
 
 

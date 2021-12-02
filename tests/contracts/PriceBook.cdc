@@ -7,9 +7,11 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
  pub contract PriceBook { 
 
+    pub event ContractInitialized()
+
     // Fraction Information
     // Fraction supply by Vault Id
-    pub let fractionSupply: {UInt256: UInt256}
+    access(account) let fractionSupply: {UInt256: UInt256}
 
     
     pub event Prices(prices: [UFix64])
@@ -41,11 +43,11 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
     //Vault information//
     //Array of prices with more than 1% voting for them by vaultId
-    pub let prices: {UInt256: EnumerableSet.UFix64Set}
+    access(account) let prices: {UInt256: EnumerableSet.UFix64Set}
     //All prices and the number voting for them
-    pub let priceToCount: {UInt256: {UFix64: UInt256}}
+    access(account)  let priceToCount: {UInt256: {UFix64: UInt256}}
     //The price each fraction is bidding
-    pub let fractionPrices: {UInt256: {UInt64: UFix64}}
+    access(account)  let fractionPrices: {UInt256: {UInt64: UFix64}}
 
     // add to a price count
     // add price to reserve calc if 1% are voting for it
@@ -177,6 +179,8 @@ import EnumerableSet from "./EnumerableSet.cdc"
         self.prices = {}
         self.priceToCount = {}
         self.fractionPrices = {}
+
+        emit ContractInitialized()
     }
  }
  

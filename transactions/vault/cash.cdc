@@ -1,17 +1,20 @@
 import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import FungibleToken from "../../contracts/FungibleToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 // a transaction to call the cash() function 
 // in order to swap fractions for the FLOW proceeds of an auction
-transaction(vaultId: UInt256) {
+transaction(vaultId: UInt256, fractionIds: [UInt64]) {
 
     //Reference to the signers Fraction collection
     let usersCollection: &Fraction.Collection
-    //Address where the vaults are stored
+    //Vault for which proceeds will be cashed
     let fractionalVault: &FractionalVault.Vault
     //Vault used to kickoff the auction
     let sentCollection: @NonFungibleToken.Collection
+    //Capability to deposit the proceeds
+    let vaultCap: Capability<&{FungibleToken.Receiver}>
 
     prepare(signer: AuthAccount){
         let vaultAddress = FractionalVault.vaultAddress
@@ -29,20 +32,21 @@ transaction(vaultId: UInt256) {
 
         self.sentCollection <- Fraction.createEmptyCollection()
 
+        self.vaultCap = signer.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+
     }
 
     execute {
-        let fractionIds = self.usersCollection.vaultToFractions[vaultId]!.values()
 
         if fractionIds.length == 0 {
-            return
+            panic("No fractions to cash")
         }
 
         for id in fractionIds {
             self.sentCollection.deposit(token: <- self.usersCollection.withdraw(withdrawID: id))
         }
 
-        self.fractionalVault.cash(<- self.sentCollection)
+        self.fractionalVault.cash(collection: <- self.sentCollection, collector: self.vaultCap)
     }
 
 }

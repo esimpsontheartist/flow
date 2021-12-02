@@ -43,7 +43,7 @@ pub fun main(vaultId: UInt256): Vault? {
                   auctionEnd: vault.auctionEnd, 
                   auctionLength: vault.auctionLength,
                   livePrice: vault.livePrice,
-                  winning: vault.winning,
+                  winning: vault.winning?.address,
                   auctionState: vault.auctionState!.rawValue,
                   resourceID: vault.uuid, 
                   vaultAddress: vaultAddress

@@ -1,38 +1,78 @@
 import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import Fraction from "../../contracts/Fraction.cdc"
+import FlowToken from "../../contracts/FlowToken.cdc"
 import WrappedCollection from "../../contracts/WrappedCollection.cdc"
-import ExampleNFT from "../../contracts/ExampleNFT.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 //Transaction to mint a new vault
-transaction(nftIds: [UInt64], fractionCurator: Address) {
-
-    //An example NFT collection
-    let collection: &ExampleNFT.Collection
+transaction(
+    nftIds: [UInt64], 
+    fractionCurator: Address,
+    maxSupply: UInt256
+) {
     
+    //An example NFT collection
+    let collection: &WrappedCollection.Collection
+    
+    let curator: Capability<&Fraction.Collection>
     //The user authorizes borrowing the transaction to borrow the collection
     prepare(account: AuthAccount) {
-        self.collection = account.borrow<&ExampleNFT.Collection>(from: ExampleNFT.CollectionStoragePath) ?? panic("could not load collection")
+        
+        self.collection = account.borrow<&WrappedCollection.Collection>(from: WrappedCollection.CollectionStoragePath) 
+        ?? panic("could not load collection")
+
+        self.curator = account.getCapability<&Fraction.Collection>(Fraction.CollectionPrivatePath)
+    }
+
+    pre {
+        self.curator.check() == true : "mint_vault:capability not linked"
     }
 
     execute {
+        
+        log("Private Fraction Capability: ")
+        log(self.curator)
 
+        let fractionalCollection = self.curator.borrow() ?? panic("could not borrow curators fractions")
+
+        let fractionIds = fractionalCollection.getIDs()
+
+        log("Fraction IDs: ")
+        log(fractionIds)
         //Create the WrappedCollection to be deposited into the vault
-        let collection <- WrappedCollection.createEmptyCollection()
+        let wrappedCollection <- WrappedCollection.createEmptyCollection()
 
         //withdraw the underlying
         for id in nftIds {
-            let underlying <- self.collection.withdraw(withdrawID: id) as! @ExampleNFT.NFT
-            let type = underlying.getType()
-            let path = underlying.collectionPath
-            let address = underlying.owner?.address!
-            //wrap the underlying
-            let wrapped <- WrappedCollection.wrap(nft: <- underlying, address: address, collectionPath: path, nftType: type)
-
-            collection.depositWNFT(token: <- wrapped)
+            wrappedCollection.deposit(token: <- self.collection.withdraw(withdrawID: id))
         }
         
+        let medias: {UInt64: FractionalVault.Media} = {}
+        let displays: {UInt64: FractionalVault.Display} = {}
 
-        FractionalVault.mintVault(collection: <- collection, fractionCurator: fractionCurator)
+        medias[0] = FractionalVault.Media(
+            data: "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+            contentType: "image/jpeg",
+            protocol: "http"
+        )
+
+        displays[0] = FractionalVault.Display(
+            name: "Example Doge",
+            thumbnail: "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
+            description: "An example NFT for testing purposes",
+            source: "ExampleNFT"
+        )
+        
+        FractionalVault.mintVault(
+            collection: <- wrappedCollection, 
+            collectionType: Type<@WrappedCollection.Collection>(),
+            bidVault: <- FlowToken.createEmptyVault(),
+            bidVaultType: Type<@FlowToken.Vault>(),
+            curator: self.curator, 
+            maxSupply: maxSupply,
+            medias: medias,
+            displays: displays
+        )
     }
 }
 

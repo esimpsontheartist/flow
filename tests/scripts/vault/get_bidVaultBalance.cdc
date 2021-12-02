@@ -9,7 +9,7 @@ pub fun main(vaultAddress: Address, vaultId: UInt256): UFix64 {
         ?? panic("could not get a reference to the fractional vault")
     
     let vault = vaultCollection.borrowVault(id: vaultId) ?? panic("could not borrow a reference to the bid vault")
-    let bidVault = vault.borrowBidVault()
+    let bidVault = vault.vaultBalance()
     return bidVault.balance
 
 }

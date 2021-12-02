@@ -6,17 +6,17 @@ pub contract Fraction: NonFungibleToken {
 
 	pub let CollectionStoragePath: StoragePath
 	pub let CollectionPublicPath: PublicPath
+	pub let CollectionPrivatePath: PrivatePath
+	pub let AdministratorStoragePath: StoragePath
 
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
 
 	//Total supply for a given fraction id
-	pub let fractionSupply: {UInt256: UInt256}
+	access(account) let fractionSupply: {UInt256: UInt256}
 
 	//Fraction id to vault id 
-	pub let idToVault: {UInt64: UInt256}
-
-	//
+	access(account) let idToVault: {UInt64: UInt256}
 
     // Event that emitted when the NFT contract is initialized
     pub event ContractInitialized()
@@ -35,6 +35,81 @@ pub contract Fraction: NonFungibleToken {
     pub event Deposit(id: UInt64, to: Address?)
 
 	
+    pub struct FractionData {
+		pub let vaultId: UInt256
+		pub let name: String
+		pub let thumbnail: String
+		pub let description: String
+		pub let source: String
+		pub let media: String
+		pub let contentType: String
+		pub let protocol: String
+
+        init(
+			vaultId: UInt256,
+			name: String,
+			thumbnail: String,
+			description: String,
+			source: String,
+			media: String,
+			contentType: String,
+			protocol: String
+		) {
+			self.vaultId = vaultId
+			self.name = name 
+			self.thumbnail = thumbnail 
+			self.description = description 
+			self.source = source 
+			self.media = media 
+			self.contentType = contentType
+			self.protocol = protocol 
+        }
+	}
+
+    //mapping of vaultId to Fraction Data
+	//this data gets stored in order to be used by other contracts that mint fractions during a transaction
+    priv let vaultToFractionData: {UInt256: FractionData}
+
+	pub resource Administrator { 
+		pub fun setVaultFractionData(vaultId: UInt256, fractionData: FractionData) {
+			Fraction.vaultToFractionData[vaultId] = fractionData
+		}
+	}
+	
+
+	pub struct Metadata { 
+		pub let vaultId: UInt256
+		pub let name: String
+		pub let thumbnail: String
+		pub let description: String
+		pub let source: String
+		pub let media: String
+		pub let contentType: String
+		pub let protocol: String
+
+		init(
+			vaultId: UInt256,
+			name: String,
+			thumbnail: String,
+			description: String,
+			source: String,
+			media: String,
+			contentType: String,
+			protocol: String
+
+		) {
+			self.vaultId = vaultId
+			self.name = name
+			self.thumbnail = thumbnail
+			self.description = description
+			self.source = source
+			self.media = media
+			self.contentType = contentType
+			self.protocol = protocol
+		}
+	}
+
+	pub event MintFractions(ids: [UInt64], metadata: Metadata)
 	
 	pub resource interface Public {
 		pub let id: UInt64
@@ -47,6 +122,7 @@ pub contract Fraction: NonFungibleToken {
 		pub let contentType: String
 		pub let protocol: String
 	}
+
 	//The resource that represents the
     pub resource NFT: NonFungibleToken.INFT, Public {
 
@@ -210,22 +286,25 @@ pub contract Fraction: NonFungibleToken {
 	// function to mint a group of fractions corresponding to a vault
 	access(account) fun mintFractions(
 		amount: UInt256, 
-		vaultId: UInt256,
-		name: String,
-		thumbnail: String,
-		description: String,
-		source: String,
-		media: String,
-		contentType: String,
-		protocol: String
+		vaultId: UInt256
 	): @Collection {
 
 		pre {
-			self.fractionSupply[vaultId] ?? 0 as UInt256 < 10000 : "Vault cannot mint more fractions!"
+			self.fractionSupply[vaultId] ?? 0 as UInt256 < 10000 : "mintFractions:vault cannot mint more fractions!"
+			self.vaultToFractionData[vaultId] != nil : "mintFractions:no data to mint the fractions"
 		}
 
 		let newCollection <- create Collection()
 
+		let name = self.vaultToFractionData[vaultId]!.name
+		let thumbnail = self.vaultToFractionData[vaultId]!.thumbnail
+		let description = self.vaultToFractionData[vaultId]!.description
+		let source = self.vaultToFractionData[vaultId]!.source
+		let media = self.vaultToFractionData[vaultId]!.media
+		let contentType = self.vaultToFractionData[vaultId]!.contentType
+		let protocol = self.vaultToFractionData[vaultId]!.protocol
+
+		var ids: [UInt64] = []
 		var i: UInt256 = 0 
 		while i < amount {
 			newCollection.deposit(token: <- create NFT(
@@ -240,17 +319,34 @@ pub contract Fraction: NonFungibleToken {
 					protocol: protocol
 				)
 			)
+			ids.append(Fraction.totalSupply)
 			self.idToVault[self.totalSupply] = vaultId
 			self.totalSupply = self.totalSupply + 1
 			i = i + 1
 		}
+
+		let metadata = Metadata(
+			vaultId: vaultId,
+			name: self.vaultToFractionData[vaultId]!.name,
+			thumbnail: self.vaultToFractionData[vaultId]!.thumbnail,
+			description: self.vaultToFractionData[vaultId]!.description,
+			source: self.vaultToFractionData[vaultId]!.source,
+			media: self.vaultToFractionData[vaultId]!.media,
+			contentType: self.vaultToFractionData[vaultId]!.contentType,
+			protocol: self.vaultToFractionData[vaultId]!.protocol
+		)
+
+		emit MintFractions(ids: ids, metadata: metadata)
+
 		if self.fractionSupply[vaultId] == nil {
 			self.fractionSupply[vaultId] = amount
 		} 
 		else {
 			self.fractionSupply[vaultId] = self.fractionSupply[vaultId]! + amount
 		}
+
 		PriceBook.addToSupply(vaultId, amount)
+		
 		return <- newCollection
 	}
 
@@ -260,14 +356,22 @@ pub contract Fraction: NonFungibleToken {
 	}
 
     init() {
-        self.totalSupply = 0
+        
+		self.CollectionPublicPath = /public/fractionalCollection
+		self.CollectionPrivatePath = /private/fractionalCollection
+		self.CollectionStoragePath = /storage/fractionalCollection
+		self.AdministratorStoragePath = /storage/fractionAdmin
+
+		self.totalSupply = 0
 		self.fractionSupply = {}
 		self.idToVault = {}
-		self.CollectionPublicPath = /public/fractionalCollection
-		self.CollectionStoragePath = /storage/fractionalCollection
+		self.vaultToFractionData = {}
 
+		let admin <- create Administrator()
+        self.account.save(<- admin, to: self.AdministratorStoragePath)
 		self.account.save<@NonFungibleToken.Collection>(<- Fraction.createEmptyCollection(), to: Fraction.CollectionStoragePath)
 		self.account.link<&{Fraction.CollectionPublic}>(Fraction.CollectionPublicPath, target: Fraction.CollectionStoragePath)
+		self.account.link<&Fraction.Collection>(Fraction.CollectionPrivatePath, target: Fraction.CollectionStoragePath)
 
         emit ContractInitialized()	
     }

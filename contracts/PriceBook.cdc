@@ -7,9 +7,11 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
  pub contract PriceBook { 
 
+    pub event ContractInitialized()
+
     // Fraction Information
     // Fraction supply by Vault Id
-    pub let fractionSupply: {UInt256: UInt256}
+    access(account) let fractionSupply: {UInt256: UInt256}
 
     
     pub event Prices(prices: [UFix64])
@@ -41,15 +43,19 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
     //Vault information//
     //Array of prices with more than 1% voting for them by vaultId
-    pub let prices: {UInt256: EnumerableSet.UFix64Set}
+    access(account) let prices: {UInt256: EnumerableSet.UFix64Set}
     //All prices and the number voting for them
-    pub let priceToCount: {UInt256: {UFix64: UInt256}}
+    access(account)  let priceToCount: {UInt256: {UFix64: UInt256}}
     //The price each fraction is bidding
-    pub let fractionPrices: {UInt256: {UInt64: UFix64}}
+    access(account)  let fractionPrices: {UInt256: {UInt64: UFix64}}
 
     // add to a price count
     // add price to reserve calc if 1% are voting for it
     access(account) fun addToPrice(_ vaultId: UInt256, _ amount: UInt256, _ price: UFix64) {
+        if self.prices[vaultId] == nil {
+            self.prices.insert(key: vaultId, EnumerableSet.UFix64Set())
+        }
+
         let nested = self.priceToCount[vaultId] ?? {}
         //forcing optional value below leads to an error
         if nested[price] == nil {
@@ -61,9 +67,7 @@ import EnumerableSet from "./EnumerableSet.cdc"
         
         self.priceToCount[vaultId] = nested
 
-        if self.prices[vaultId] == nil {
-            self.prices.insert(key: vaultId, EnumerableSet.UFix64Set())
-        }
+        
         
         if self.priceToCount[vaultId]![price]! * 100 >= self.fractionSupply[vaultId]! && !self.prices[vaultId]!.contains(price) {
             self.prices[vaultId]!.add(price)
@@ -93,6 +97,7 @@ import EnumerableSet from "./EnumerableSet.cdc"
             
         }
     }
+
 
     access(contract) fun slice(_ array: [UFix64], _ begin: Integer, _ last: Integer): [UFix64] {
         var arr: [UFix64] = []
@@ -174,6 +179,8 @@ import EnumerableSet from "./EnumerableSet.cdc"
         self.prices = {}
         self.priceToCount = {}
         self.fractionPrices = {}
+
+        emit ContractInitialized()
     }
  }
  
