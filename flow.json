@@ -24,10 +24,10 @@
 			}
 		},
 		"NonFungibleToken": {
-			"sourcE": "./contracts/NonFungibleToken.cdc",
+			"source": "./contracts/NonFungibleToken.cdc",
 			"aliases": {
 				"emulator": "0xee82856bf20e2aa6",
-				"testnet": "0x9a0766d93b6608b7"
+				"testnet": "0x631e88ae7f1d7c20"
 			}
 		},
 		"FractionalVault": "./contracts/FractionalVault.cdc",
@@ -43,6 +43,10 @@
 		"emulator-account": {
 			"address": "f8d6e0586b0a20c7",
 			"key": "cc607bf6438f239405fc4534571806f509ca12e55785e3e16b3050b3ff0679fc"
+		},
+		"testnet-account": {
+			"address": "0x0f95c7487c2c05c8",
+			"key": "5cecec6651b855f5791fd7172d2113626c3dfff3755a5105664cca949cb06785"
 		}
 	},
 	"deployments": {
@@ -58,6 +62,21 @@
 					"name": "FractionalVault",
 					"args": [ 
 						{"type": "Address", "value": "0xf8d6e0586b0a20c7"}
+					]
+				}
+			]
+		},
+		"testnet": {
+			"testnet-account": [
+				"EnumerableSet",
+				"ExampleNFT",
+				"WrappedCollection",
+				"Fraction",
+				"PriceBook",
+				{
+					"name": "FractionalVault",
+					"args": [ 
+						{"type": "Address", "value": "0xebf27e956dd60517"}
 					]
 				}
 			]
