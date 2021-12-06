@@ -16,58 +16,31 @@ pub contract FractionFixedPriceSale {
     //Mapping of IDs to listings
     pub var listings: {UInt64: ListingData}
 
-    //Sale ID to Sale Data
-    pub let sales: {UInt64: SaleData}
-
-    pub event Purchase(saleData: SaleData)
+    pub event Purchase(listingData: ListingData)
 
     pub event Listing(listingData: ListingData)
 
     pub event Cancelled(listingData: ListingData)
 
-    pub struct SaleData {
-        pub let id: UInt64
-        pub let salePrice: UFix64
-        pub let fraction: FractionalVault.FractionData
-        pub let fractionIdsSold: [UInt64]
-        pub let seller: Address
-
-        init(
-            _ id: UInt64,
-            _ salePrice: UFix64,
-            _ fraction: FractionalVault.FractionData,
-            _ fractionIdsSold: [UInt64],
-            _ seller: Address
-        ){
-            self.id = id
-            self.salePrice = salePrice
-            self.fraction = fraction
-            self.fractionIdsSold = fractionIdsSold
-            self.seller = seller
-        }
-    }
-
     pub struct ListingData {
         pub let saleId: UInt64
         pub let vaultId: UInt256
-        pub let fractionData: FractionalVault.FractionData
+        pub let fractionData: Fraction.FractionData
         pub let curator: Address
         pub let amount: UInt256
         pub let salePrice: UFix64
         pub let salePaymentType: Type
         pub let receiver: Address
-        pub let live: Bool
 
         init(
             _ saleId: UInt64,
             _ vaultId: UInt256, 
-            _ fractionData: FractionalVault.FractionData,
+            _ fractionData: Fraction.FractionData,
             _ curator: Address,
             _ amount: UInt256, 
             _ salePrice: UFix64,
             _ salePaymentType: Type,
-            _ receiver: Address,
-            _ live: Bool
+            _ receiver: Address
         ) {
             self.saleId = saleId
             self.vaultId = vaultId
@@ -77,7 +50,6 @@ pub contract FractionFixedPriceSale {
             self.salePrice = salePrice
             self.salePaymentType = salePaymentType
             self.receiver = receiver
-            self.live = live
         }
     }
 
@@ -128,15 +100,18 @@ pub contract FractionFixedPriceSale {
                 vaultId: self.vaultId, 
             )
 
-            FractionFixedPriceSale.sales[self.id] = SaleData(
+            let listingData = ListingData(
                 self.id,
-                self.salePrice,
+                self.vaultId,
                 Fraction.vaultToFractionData[self.vaultId]!,
-                fractions.getIDs(),
+                self.curator.address,
+                self.amount,
+                self.salePrice,
+                self.salePaymentType,
                 self.receiver.address
             )
 
-            emit Purchase(saleData: FractionFixedPriceSale.sales[self.id]!)
+            emit Purchase(listingData: listingData)
 
             self.discontinued = true
             
@@ -152,7 +127,6 @@ pub contract FractionFixedPriceSale {
     pub resource interface FixedSaleCollectionPublic {
         pub fun purchaseListing(listingId: UInt64, buyTokens: @FungibleToken.Vault): @Fraction.Collection
         pub fun getIDs(): [UInt64]
-        pub fun getMetadata(saleId: UInt64): Fraction.FractionData
     }
 
     pub resource FixedSaleCollection:  FixedSaleCollectionPublic {
@@ -196,8 +170,7 @@ pub contract FractionFixedPriceSale {
                         amount,
                         salePrice,
                         salePaymentType,
-                        receiver.address,
-                        true
+                        receiver.address
                     )
 
                     emit Listing(listingData: listingData)
@@ -238,8 +211,7 @@ pub contract FractionFixedPriceSale {
                 listing.amount,
                 listing.salePrice,
                 listing.salePaymentType,
-                listing.receiver.address,
-                false
+                listing.receiver.address
             )
 
             emit Cancelled(listingData: listingData)
@@ -248,10 +220,6 @@ pub contract FractionFixedPriceSale {
 
         pub fun getIDs(): [UInt64] {
             return self.forSale.keys
-        }
-
-        pub fun getMetadata(saleId: UInt64): Fraction.FractionData {
-            return FractionFixedPriceSale.sales[saleId]!.fraction
         }
 
         init(){
@@ -263,12 +231,15 @@ pub contract FractionFixedPriceSale {
         }
     }
 
+    pub fun getListing(saleId: UInt64): ListingData {
+        return FractionFixedPriceSale.listings[saleId] ?? panic("getListing:could not get a listing for the given id")
+    }
+
     pub fun createFixedPriceSaleCollection(): @FixedSaleCollection {
         return <- create FixedSaleCollection()
     }
 
     pub init() {
-        self.sales = {}
         self.numOfListings = 0
         self.listings = {}
 

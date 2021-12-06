@@ -30,15 +30,6 @@ transaction(
 
     execute {
         
-        log("Private Fraction Capability: ")
-        log(self.curator)
-
-        let fractionalCollection = self.curator.borrow() ?? panic("could not borrow curators fractions")
-
-        let fractionIds = fractionalCollection.getIDs()
-
-        log("Fraction IDs: ")
-        log(fractionIds)
         //Create the WrappedCollection to be deposited into the vault
         let wrappedCollection <- WrappedCollection.createEmptyCollection()
 

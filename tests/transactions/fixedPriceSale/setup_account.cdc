@@ -1,6 +1,6 @@
 import FractionFixedPriceSale from "../../contracts/FractionFixedPriceSale.cdc"
 
-// This transaction configures an account to hold fractions
+// This transaction configures an account to hold fixed price sales
 
 transaction {
     prepare(signer: AuthAccount) {

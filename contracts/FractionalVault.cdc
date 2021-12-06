@@ -515,15 +515,10 @@ pub contract FractionalVault {
         displays: {UInt64: Display}
     ) {
         
-        log("Curator: ")
-        log(curator)
-
         let fractionalCollection = curator.borrow() ?? panic("could not borrow curators fractions")
 
         let fractionIds = fractionalCollection.getIDs()
 
-        log("Fraction IDs: ")
-        log(fractionIds)
         //Initialize a vault
         let vault <- create Vault(
             id: self.vaultCount, 

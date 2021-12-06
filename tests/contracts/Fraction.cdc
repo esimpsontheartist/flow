@@ -15,6 +15,8 @@ pub contract Fraction: NonFungibleToken {
 	//Total supply for a given fraction id
 	access(account) let fractionSupply: {UInt256: UInt256}
 
+	//Total supply that can be minted for a vault
+	access(account) let maxVaultSupply: {UInt256: UInt256}
 	//Fraction id to vault id 
 	access(account) let idToVault: {UInt64: UInt256}
 
@@ -68,7 +70,7 @@ pub contract Fraction: NonFungibleToken {
 
     //mapping of vaultId to Fraction Data
 	//this data gets stored in order to be used by other contracts that mint fractions during a transaction
-    priv let vaultToFractionData: {UInt256: FractionData}
+    access(account) let vaultToFractionData: {UInt256: FractionData}
 
 	pub resource Administrator { 
 		pub fun setVaultFractionData(vaultId: UInt256, fractionData: FractionData) {
@@ -290,7 +292,7 @@ pub contract Fraction: NonFungibleToken {
 	): @Collection {
 
 		pre {
-			self.fractionSupply[vaultId] ?? 0 as UInt256 < 10000 : "mintFractions:vault cannot mint more fractions!"
+			self.fractionSupply[vaultId] ?? 0 as UInt256 < self.maxVaultSupply[vaultId]! : "mintFractions:vault cant mint more fractions!"
 			self.vaultToFractionData[vaultId] != nil : "mintFractions:no data to mint the fractions"
 		}
 
@@ -366,6 +368,7 @@ pub contract Fraction: NonFungibleToken {
 		self.fractionSupply = {}
 		self.idToVault = {}
 		self.vaultToFractionData = {}
+		self.maxVaultSupply = {}
 
 		let admin <- create Administrator()
         self.account.save(<- admin, to: self.AdministratorStoragePath)

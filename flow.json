@@ -32,7 +32,8 @@
 		},
 		"FractionalVault": "./contracts/FractionalVault.cdc",
 		"Fraction": "./contracts/Fraction.cdc",
-		"PriceBook": "./contracts/PriceBook.cdc"
+		"PriceBook": "./contracts/PriceBook.cdc",
+		"FractionFixedPriceSale": "./contracts/FractionFixedPriceSale.cdc"
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
@@ -46,6 +47,10 @@
 		},
 		"testnet-account": {
 			"address": "0x0f95c7487c2c05c8",
+			"key": "5cecec6651b855f5791fd7172d2113626c3dfff3755a5105664cca949cb06785"
+		},
+		"vault-account": {
+			"address": "0xebf27e956dd60517",
 			"key": "5cecec6651b855f5791fd7172d2113626c3dfff3755a5105664cca949cb06785"
 		}
 	},

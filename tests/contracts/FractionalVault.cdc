@@ -163,8 +163,6 @@ pub contract FractionalVault {
         pub let underlyingType: Type
         //Max supply the user allows to exist
         access(contract) var maxSupply: UInt256
-        //Min supply that the contract allows
-        access(contract) var minSupply: UInt256
         //Hold media for the underlying nfts
         pub let medias: {UInt64: Media}
         //Hold display information for the underlying
@@ -199,7 +197,7 @@ pub contract FractionalVault {
             }
 
             post {
-                maxSupply >= self.minSupply : "init:max supply cannot be less than the minimum allowed supply"
+                maxSupply >= 1000 : "init:max supply cannot be less than the minimum allowed supply"
             }
 
             self.id = id
@@ -212,7 +210,6 @@ pub contract FractionalVault {
             self.auctionState = State.inactive
             self.maxSupply = maxSupply
             self.redemptionAmount = maxSupply
-            self.minSupply = 1000
             self.medias = medias
             self.displays = displays
 
@@ -515,16 +512,7 @@ pub contract FractionalVault {
         medias: {UInt64: Media},
         displays: {UInt64: Display}
     ) {
-        
-        log("Curator: ")
-        log(curator)
 
-        let fractionalCollection = curator.borrow() ?? panic("could not borrow curators fractions")
-
-        let fractionIds = fractionalCollection.getIDs()
-
-        log("Fraction IDs: ")
-        log(fractionIds)
         //Initialize a vault
         let vault <- create Vault(
             id: self.vaultCount, 
@@ -537,6 +525,8 @@ pub contract FractionalVault {
             medias: medias,
             displays: displays
         )
+
+        Fraction.maxVaultSupply[vault.id] = maxSupply
         
         let vaultCollection = getAccount(self.vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
         ?? panic("Could not borrow a reference to the Fractional Vault Collection")
