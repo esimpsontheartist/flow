@@ -1,5 +1,5 @@
-import FungibleToken from "./FungibleToken.cdc"
-import NonFungibleToken from "./NonFungibleToken.cdc"
+import FungibleToken from "./core/FungibleToken.cdc"
+import NonFungibleToken from "./core/NonFungibleToken.cdc"
 import PriceBook from "./PriceBook.cdc"
 import Fraction from "./Fraction.cdc"
 
@@ -25,13 +25,10 @@ pub contract FractionalVault {
 
     pub event ContractInitialized()
 
-
     pub var feeReceiver: Capability<&{FungibleToken.Receiver}>?
 
-    
-
     pub resource Administrator {
-        pub fun setFeeReceiver(receiver: Capability<&{FungibleToken.Receiver}>) {
+        access(account) fun setFeeReceiver(receiver: Capability<&{FungibleToken.Receiver}>) {
             pre {
                 receiver != nil: "fees cannot go to nil capability"
             }
@@ -50,33 +47,6 @@ pub contract FractionalVault {
         pub case ended
         pub case redeemed
     }
-
-    //struct for the underlying nft data
-    pub struct Media {
-        pub let data: String
-        pub let contentType: String
-        pub let protocol: String
-
-        init(data: String, contentType: String, protocol: String) {
-			self.data = data
-			self.protocol = protocol
-			self.contentType = contentType
-		}
-    }
-
-    pub struct Display{
-		pub let name: String
-		pub let thumbnail: String
-		pub let description: String
-		pub let source: String
-
-		init(name: String, thumbnail: String, description: String, source: String) {
-			self.source = source
-			self.name = name
-			self.thumbnail = thumbnail
-			self.description = description
-		}
-	}
 
     /// -----------------------------------
     /// ------ Vault Events ---------------
@@ -101,8 +71,6 @@ pub contract FractionalVault {
         bidVaultType: Type,
         underlyingType: Type,
         maxSupply: UInt256,
-        medias: {UInt64: Media},
-        displays: {UInt64 : Display}
     );
 
 
@@ -149,7 +117,6 @@ pub contract FractionalVault {
 
         //address that can receive the fractions
         pub let curator: Capability<&Fraction.Collection>
-
         //The vault that holds fungible tokens for an auction
         access(contract) let bidVault: @FungibleToken.Vault
         //The type of Fungible Token that the vault accepts
@@ -162,13 +129,6 @@ pub contract FractionalVault {
         pub let underlyingType: Type
         //Max supply the user allows to exist
         access(contract) var maxSupply: UInt256
-        //Min supply that the contract allows
-        access(contract) var minSupply: UInt256
-        //Hold media for the underlying nfts
-        pub let medias: {UInt64: Media}
-        //Hold display information for the underlying
-        pub let displays: {UInt64: Display}
-
         //varaible used for redemption calculations
         access(self) var redemptionAmount: UInt256
 
@@ -188,17 +148,13 @@ pub contract FractionalVault {
             bidVaultType: Type,
             curator: Capability<&Fraction.Collection>,
             maxSupply: UInt256,
-            medias: {UInt64: Media},
-            displays: {UInt64: Display}
         ) {
             pre {
-                //curator.check() == true : "init:curator capability must be linked"
-                medias.length == underlying.getIDs().length : "init:length of medias does not equal the length of the collection"
-                displays.length == underlying.getIDs().length : "init:length of displays does not equal the length of the collection"
+                curator.check() == true : "init:curator capability must be linked"
             }
 
             post {
-                maxSupply >= self.minSupply : "init:max supply cannot be less than the minimum allowed supply"
+                maxSupply >= 1000 : "init:max supply cannot be less than the minimum allowed supply"
             }
 
             self.id = id
@@ -211,11 +167,6 @@ pub contract FractionalVault {
             self.auctionState = State.inactive
             self.maxSupply = maxSupply
             self.redemptionAmount = maxSupply
-            self.minSupply = 1000
-            self.medias = medias
-            self.displays = displays
-
-            //Set data for the fractions that will be minted
 
             // Resources
             self.fractions <- Fraction.createEmptyFractionCollection()
@@ -230,9 +181,7 @@ pub contract FractionalVault {
                 curator: curator.address,
                 bidVaultType: bidVaultType,
                 underlyingType: underlyingType,
-                maxSupply: maxSupply,
-                medias: medias,
-                displays: displays
+                maxSupply: maxSupply
             )
         }
 
@@ -245,6 +194,17 @@ pub contract FractionalVault {
         pub fun borrowUnderlying(): &{NonFungibleToken.CollectionPublic} {
             return &self.underlying as &{NonFungibleToken.CollectionPublic}
         }
+
+        // function to get an auth referece to the collection, which can be upcasted to the original Type
+        pub fun borrowCollectionRef(): auth &NonFungibleToken.Collection {
+            return &self.underlying as auth &NonFungibleToken.Collection
+        }
+
+        // function to get an auth referece to a given NFT, which can be upcasted to the original Type
+        access(account) fun borrowUnderlyingRef(id: UInt64): auth &NonFungibleToken.NFT {
+            return &self.underlying.ownedNFTs[id] as auth &NonFungibleToken.NFT
+        }
+
 
         pub fun vaultBalance(): &{FungibleToken.Balance} {
             return &self.bidVault as &{FungibleToken.Balance}
@@ -510,14 +470,8 @@ pub contract FractionalVault {
         bidVault: @FungibleToken.Vault,
         bidVaultType: Type,
         curator: Capability<&Fraction.Collection>,
-        maxSupply: UInt256,
-        medias: {UInt64: Media},
-        displays: {UInt64: Display}
+        maxSupply: UInt256
     ) {
-        
-        let fractionalCollection = curator.borrow() ?? panic("could not borrow curators fractions")
-
-        let fractionIds = fractionalCollection.getIDs()
 
         //Initialize a vault
         let vault <- create Vault(
@@ -527,10 +481,10 @@ pub contract FractionalVault {
             bidVault: <- bidVault, 
             bidVaultType: bidVaultType,
             curator: curator,
-            maxSupply: maxSupply,
-            medias: medias,
-            displays: displays
+            maxSupply: maxSupply
         )
+
+        Fraction.maxVaultSupply[vault.id] = maxSupply
         
         let vaultCollection = getAccount(self.vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
         ?? panic("Could not borrow a reference to the Fractional Vault Collection")

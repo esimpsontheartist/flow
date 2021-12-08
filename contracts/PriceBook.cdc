@@ -67,8 +67,6 @@ import EnumerableSet from "./EnumerableSet.cdc"
         
         self.priceToCount[vaultId] = nested
 
-        
-        
         if self.priceToCount[vaultId]![price]! * 100 >= self.fractionSupply[vaultId]! && !self.prices[vaultId]!.contains(price) {
             self.prices[vaultId]!.add(price)
         }

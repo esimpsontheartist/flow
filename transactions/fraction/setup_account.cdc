@@ -1,4 +1,4 @@
-import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import NonFungibleToken from "../../contracts/core/NonFungibleToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
 
 // This transaction configure an account to hold fractions

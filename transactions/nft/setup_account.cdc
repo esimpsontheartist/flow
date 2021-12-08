@@ -1,4 +1,4 @@
-import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import NonFungibleToken from "../../contracts/core/NonFungibleToken.cdc"
 import ExampleNFT from "../../contracts/ExampleNFT.cdc"
 
 //Transaction that configures an account to hold an example NFT

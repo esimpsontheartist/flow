@@ -1,6 +1,6 @@
 import WrappedCollection from "../../contracts/WrappedCollection.cdc"
 import ExampleNFT from "../../contracts/ExampleNFT.cdc"
-import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import NonFungibleToken from "../../contracts/core/NonFungibleToken.cdc"
 
 transaction(
     nftIds: [UInt64]

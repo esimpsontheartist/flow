@@ -1,4 +1,4 @@
-import NonFungibleToken from "./NonFungibleToken.cdc"
+import NonFungibleToken from "./core/NonFungibleToken.cdc"
 import EnumerableSet from "./EnumerableSet.cdc"
 import PriceBook from "./PriceBook.cdc"
 
@@ -15,6 +15,8 @@ pub contract Fraction: NonFungibleToken {
 	//Total supply for a given fraction id
 	access(account) let fractionSupply: {UInt256: UInt256}
 
+	//Total supply that can be minted for a vault
+	access(account) let maxVaultSupply: {UInt256: UInt256}
 	//Fraction id to vault id 
 	access(account) let idToVault: {UInt64: UInt256}
 
@@ -68,59 +70,20 @@ pub contract Fraction: NonFungibleToken {
 
     //mapping of vaultId to Fraction Data
 	//this data gets stored in order to be used by other contracts that mint fractions during a transaction
-    priv let vaultToFractionData: {UInt256: FractionData}
+    access(account) let vaultToFractionData: {UInt256: FractionData}
 
 	pub resource Administrator { 
 		pub fun setVaultFractionData(vaultId: UInt256, fractionData: FractionData) {
 			Fraction.vaultToFractionData[vaultId] = fractionData
 		}
 	}
-	
 
-	pub struct Metadata { 
-		pub let vaultId: UInt256
-		pub let name: String
-		pub let thumbnail: String
-		pub let description: String
-		pub let source: String
-		pub let media: String
-		pub let contentType: String
-		pub let protocol: String
-
-		init(
-			vaultId: UInt256,
-			name: String,
-			thumbnail: String,
-			description: String,
-			source: String,
-			media: String,
-			contentType: String,
-			protocol: String
-
-		) {
-			self.vaultId = vaultId
-			self.name = name
-			self.thumbnail = thumbnail
-			self.description = description
-			self.source = source
-			self.media = media
-			self.contentType = contentType
-			self.protocol = protocol
-		}
-	}
-
-	pub event MintFractions(ids: [UInt64], metadata: Metadata)
+	pub event MintFractions(ids: [UInt64], metadata: FractionData)
 	
 	pub resource interface Public {
 		pub let id: UInt64
 		pub let vaultId: UInt256
-		pub let name: String
-		pub let thumbnail: String
-		pub let description: String
-		pub let source: String
-		pub let media: String
-		pub let contentType: String
-		pub let protocol: String
+		pub fun getMetadata(): FractionData
 	}
 
 	//The resource that represents the
@@ -130,42 +93,18 @@ pub contract Fraction: NonFungibleToken {
         pub let id: UInt64
 		//Id to separate fractions by vault
 		pub let vaultId: UInt256
-		//name of the fraction collection
-		pub let name: String
-		//thumbnail to be shown in the blocto wallet
-		pub let thumbnail: String
-		//description
-		pub let description: String
-		//From what protocol does this NFT come from
-		pub let source: String
-		//data for the media
-		pub let media: String
-		//type of the content for the media (jpeg, gif, etc)
-		pub let contentType: String
-		//protocol of the media (ipfs, http, etc)
-		pub let protocol: String
 
         init(
 			id: UInt64, 
-			vaultId: UInt256,
-			name: String,
-			thumbnail: String,
-			description: String,
-			source: String,
-			media: String,
-			contentType: String,
-			protocol: String
+			vaultId: UInt256
 		) {
             self.id = id
 			self.vaultId = vaultId
-			self.name = name 
-			self.thumbnail = thumbnail 
-			self.description = description 
-			self.source = source 
-			self.media = media 
-			self.contentType = contentType
-			self.protocol = protocol 
         }
+
+		pub fun getMetadata(): FractionData {
+			return Fraction.vaultToFractionData[self.vaultId] ?? panic("getMetadata:could not get fraction metadata")
+		}
 
 		destroy() {
 			let priceBook = PriceBook.fractionPrices[self.vaultId] ?? {}
@@ -290,33 +229,18 @@ pub contract Fraction: NonFungibleToken {
 	): @Collection {
 
 		pre {
-			self.fractionSupply[vaultId] ?? 0 as UInt256 < 10000 : "mintFractions:vault cannot mint more fractions!"
+			self.fractionSupply[vaultId] ?? 0 as UInt256 < self.maxVaultSupply[vaultId]! : "mintFractions:vault cant mint more fractions!"
 			self.vaultToFractionData[vaultId] != nil : "mintFractions:no data to mint the fractions"
 		}
 
 		let newCollection <- create Collection()
-
-		let name = self.vaultToFractionData[vaultId]!.name
-		let thumbnail = self.vaultToFractionData[vaultId]!.thumbnail
-		let description = self.vaultToFractionData[vaultId]!.description
-		let source = self.vaultToFractionData[vaultId]!.source
-		let media = self.vaultToFractionData[vaultId]!.media
-		let contentType = self.vaultToFractionData[vaultId]!.contentType
-		let protocol = self.vaultToFractionData[vaultId]!.protocol
 
 		var ids: [UInt64] = []
 		var i: UInt256 = 0 
 		while i < amount {
 			newCollection.deposit(token: <- create NFT(
 					id: Fraction.totalSupply, 
-					vaultId: vaultId,
-					name: name,
-					thumbnail: thumbnail,
-					description: description,
-					source: source,
-					media: media,
-					contentType: contentType,
-					protocol: protocol
+					vaultId: vaultId
 				)
 			)
 			ids.append(Fraction.totalSupply)
@@ -325,7 +249,7 @@ pub contract Fraction: NonFungibleToken {
 			i = i + 1
 		}
 
-		let metadata = Metadata(
+		let metadata = FractionData(
 			vaultId: vaultId,
 			name: self.vaultToFractionData[vaultId]!.name,
 			thumbnail: self.vaultToFractionData[vaultId]!.thumbnail,
@@ -366,6 +290,7 @@ pub contract Fraction: NonFungibleToken {
 		self.fractionSupply = {}
 		self.idToVault = {}
 		self.vaultToFractionData = {}
+		self.maxVaultSupply = {}
 
 		let admin <- create Administrator()
         self.account.save(<- admin, to: self.AdministratorStoragePath)

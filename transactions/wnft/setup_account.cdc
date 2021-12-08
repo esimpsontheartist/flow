@@ -1,4 +1,4 @@
-import NonFungibleToken from "../../contracts/NonFungibleToken.cdc"
+import NonFungibleToken from "../../contracts/core/NonFungibleToken.cdc"
 import WrappedCollection from "../../contracts/WrappedCollection.cdc"
 
 // This transaction configure an account to hold a vault
