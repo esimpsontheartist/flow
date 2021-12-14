@@ -33,7 +33,8 @@
 		"FractionalVault": "./contracts/FractionalVault.cdc",
 		"Fraction": "./contracts/Fraction.cdc",
 		"PriceBook": "./contracts/PriceBook.cdc",
-		"FractionFixedPriceSale": "./contracts/FractionFixedPriceSale.cdc"
+		"FractionFixedPriceSale": "./contracts/FractionFixedPriceSale.cdc",
+		"TypedMetadata": "./contracts/TypedMetadata.cdc"
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
@@ -50,6 +51,7 @@
 		"emulator": {
 			"emulator-account": [
 				"NonFungibleToken",
+				"TypedMetadata",
 				"EnumerableSet",
 				"ExampleNFT",
 				"WrappedCollection",

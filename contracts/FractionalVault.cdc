@@ -51,7 +51,6 @@ pub contract FractionalVault {
     /// -----------------------------------
     /// ------ Vault Events ---------------
     /// -----------------------------------
-    /// TODO: improve events
     /// @notice An event emitted when a user updates their price
     pub event PriceUpdate(fractionsOwner: Address, amount: UInt256, price: UFix64);
     /// @notice An event emitted when an auction starts
@@ -123,7 +122,7 @@ pub contract FractionalVault {
         pub let bidVaultType: Type
         //The collection for the fractions
         access(contract) var fractions: @Fraction.Collection
-        //Collection of the NFTs the user will fractionalize (UInt64 is meant to be the NFT's uuid)
+        //Collection of the NFTs the user will fractionalize
         access(contract) var underlying: @NonFungibleToken.Collection
         //Type of collection that was deposited
         pub let underlyingType: Type
@@ -195,16 +194,10 @@ pub contract FractionalVault {
             return &self.underlying as &{NonFungibleToken.CollectionPublic}
         }
 
-        // function to get an auth referece to the collection, which can be upcasted to the original Type
-        pub fun borrowCollectionRef(): auth &NonFungibleToken.Collection {
-            return &self.underlying as auth &NonFungibleToken.Collection
-        }
-
         // function to get an auth referece to a given NFT, which can be upcasted to the original Type
         access(account) fun borrowUnderlyingRef(id: UInt64): auth &NonFungibleToken.NFT {
             return &self.underlying.ownedNFTs[id] as auth &NonFungibleToken.NFT
         }
-
 
         pub fun vaultBalance(): &{FungibleToken.Balance} {
             return &self.bidVault as &{FungibleToken.Balance}
@@ -470,7 +463,9 @@ pub contract FractionalVault {
         bidVault: @FungibleToken.Vault,
         bidVaultType: Type,
         curator: Capability<&Fraction.Collection>,
-        maxSupply: UInt256
+        maxSupply: UInt256,
+        name: String?,
+        description: String?,
     ) {
 
         //Initialize a vault
@@ -485,6 +480,13 @@ pub contract FractionalVault {
         )
 
         Fraction.maxVaultSupply[vault.id] = maxSupply
+
+        Fraction.vaultToFractionData[vault.id] = Fraction.FractionData(
+            vaultId: vault.id,
+            curator: vault.curator.address,
+            name: name ?? "Fractional Vault #".concat(vault.id.toString()),
+            description: description ?? "One or more NFTs fractionalized at fractional.art"
+        )
         
         let vaultCollection = getAccount(self.vaultAddress).getCapability<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() 
         ?? panic("Could not borrow a reference to the Fractional Vault Collection")

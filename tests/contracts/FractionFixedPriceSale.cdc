@@ -151,7 +151,8 @@ pub contract FractionFixedPriceSale {
             if let vaultCollection = getAccount(FractionalVault.vaultAddress).getCapability<&FractionalVault.VaultCollection{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath).borrow() {
                 if let vault = vaultCollection.borrowVault(id: vaultId) {
                     assert(vault.curator.address == curator.address, message: "list:no rights to mint for the given vaultId")
-                    
+                    assert(vault.auctionState == FractionalVault.State.inactive, message: "list:no listing during or after an auction")
+
                     let listing <- create Sale(
                         id: FractionFixedPriceSale.numOfListings,
                         vaultId: vaultId,
@@ -161,6 +162,7 @@ pub contract FractionFixedPriceSale {
                         curator: curator,
                         receiver: receiver
                     )
+                    
 
                     let listingData = FractionFixedPriceSale.ListingData(
                         listing.id,
@@ -231,12 +233,12 @@ pub contract FractionFixedPriceSale {
         }
     }
 
-    pub fun getListing(saleId: UInt64): ListingData {
-        return FractionFixedPriceSale.listings[saleId] ?? panic("getListing:could not get a listing for the given id")
-    }
-
     pub fun createFixedPriceSaleCollection(): @FixedSaleCollection {
         return <- create FixedSaleCollection()
+    }
+
+    pub fun getListing(saleId: UInt64): ListingData {
+        return FractionFixedPriceSale.listings[saleId] ?? panic("getListing:could not get a listing for the given id")
     }
 
     pub init() {

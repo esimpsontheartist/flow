@@ -21,6 +21,7 @@ export const deployFractionalVault = async () => {
 	await deployFraction()
 	await deployContractByName({ to: VaultAdmin, name: "WrappedCollection", addressMap: {NonFungibleToken: VaultAdmin} });
 	await deployContractByName({ to: VaultAdmin, name: "Clock"})
+
 	const addressMap = { 
 		NonFungibleToken: VaultAdmin,
 		PriceBook: VaultAdmin,

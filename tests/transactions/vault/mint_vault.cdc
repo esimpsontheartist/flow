@@ -8,7 +8,7 @@ import FractionalVault from "../../contracts/FractionalVault.cdc"
 transaction(
     nftIds: [UInt64], 
     fractionCurator: Address,
-    maxSupply: UInt256
+    maxSupply: UInt256,
 ) {
     
     //An example NFT collection
@@ -38,22 +38,6 @@ transaction(
             wrappedCollection.deposit(token: <- self.collection.withdraw(withdrawID: id))
         }
         
-        let medias: {UInt64: FractionalVault.Media} = {}
-        let displays: {UInt64: FractionalVault.Display} = {}
-
-        medias[0] = FractionalVault.Media(
-            data: "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
-            contentType: "image/jpeg",
-            protocol: "http"
-        )
-
-        displays[0] = FractionalVault.Display(
-            name: "Example Doge",
-            thumbnail: "https://lh3.googleusercontent.com/eseF_p4TBPq0Jauf99fkm32n13Xde_Zgsjdfy6L450YZaEUorYtDmUUHBxcxnC21Sq8mzBJ6uW8uUwYCKckyChysBRNvrWyZ6uSx",
-            description: "An example NFT for testing purposes",
-            source: "ExampleNFT"
-        )
-        
         FractionalVault.mintVault(
             collection: <- wrappedCollection, 
             collectionType: Type<@WrappedCollection.Collection>(),
@@ -61,8 +45,8 @@ transaction(
             bidVaultType: Type<@FlowToken.Vault>(),
             curator: self.curator, 
             maxSupply: maxSupply,
-            medias: medias,
-            displays: displays
+            name: "Fractional Test Vault",
+            description: "A vault to test out fractional functionality"
         )
     }
 }

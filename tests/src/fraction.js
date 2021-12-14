@@ -14,12 +14,14 @@ export const deployFraction = async () => {
 	await mintFlow(VaultAdmin, "10.0");
 
 	await deployContractByName({ to: VaultAdmin, name: "NonFungibleToken" });
+	await deployContractByName({ to: VaultAdmin, name: "TypedMetadata" });
 	await deployContractByName({ to: VaultAdmin, name: "EnumerableSet" });
 	await deployContractByName({ to: VaultAdmin, name: "PriceBook", addressMap: {EnumerableSet: VaultAdmin}});
-
+	
 	const addressMap = { 
 		NonFungibleToken: VaultAdmin,
 		EnumerableSet: VaultAdmin,
+		TypedMetadata: VaultAdmin,
 		PriceBook: VaultAdmin
 	}
 
@@ -41,34 +43,6 @@ export const setupFractionOnAccount = async (account) => {
 	return sendTransaction({ name, signers });
 };
 
-// Calling the setVaultFractionData
-export const setVaultFractionData = async(
-	account, 
-	vaultId,
-	name,
-    thumbnail,
-    description,
-    source,
-    media,
-    contentType,
-    protocol
-) => {
-	
-	const transaction_name = "fraction/set_fractionData";
-	const args = [
-		vaultId, 
-		name,
-		thumbnail,
-		description,
-		source,
-		media,
-		contentType,
-		protocol
-	];
-	const signers = [account];
-
-	return sendTransaction({ name: transaction_name, args, signers});
-}
 
 /*
  * Transfers an **amount** of Fractions from **sender** account to **recipient**.

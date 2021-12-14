@@ -25,25 +25,28 @@ pub contract WrappedCollection: NonFungibleToken {
        pub fun borrowNFT(): &NonFungibleToken.NFT
     }
 
-    // An NFT wrapped with useful information (by @briandilley)
+    // An NFT wrapped with useful information (inspired by a WNFT contract by @briandilley)
     pub resource NFT : WrappedNFT, NonFungibleToken.INFT {
         pub let id: UInt64
         access(contract) var nft: @NonFungibleToken.NFT?
         access(self) let address: Address
         access(self) let underlyingCollectionPath: PublicPath
         access(self) let nftType: Type
+        access(self) let metadata: {String: AnyStruct}
 
         init(
             nft: @NonFungibleToken.NFT,
             address: Address,
             underlyingCollectionPath: PublicPath,
-            nftType: Type
+            nftType: Type,
+            metadata: {String: AnyStruct}
         ) {
             self.id = nft.uuid
             self.nft <- nft
             self.address = address
             self.underlyingCollectionPath = underlyingCollectionPath
             self.nftType = nftType
+            self.metadata = metadata
         }
 
         pub fun getAddress(): Address {
@@ -56,6 +59,14 @@ pub contract WrappedCollection: NonFungibleToken {
 
         pub fun nestedType(): Type {
             return self.nftType
+        }
+
+        pub fun getMetadata(): {String: AnyStruct} {
+            return self.metadata
+        }
+
+        pub fun getMetadataByField(field: String): AnyStruct {
+            return self.metadata[field]
         }
 
         pub fun borrowNFT(): &NonFungibleToken.NFT {
@@ -83,8 +94,8 @@ pub contract WrappedCollection: NonFungibleToken {
     }
 
     // a function to wrap an NFT
-    pub fun wrap(nft: @NonFungibleToken.NFT, address: Address, collectionPath: PublicPath, nftType: Type ): @WrappedCollection.NFT {
-        return <- create NFT(nft: <- nft, address: address, underlyingCollectionPath: collectionPath, nftType: nftType)
+    pub fun wrap(nft: @NonFungibleToken.NFT, address: Address, collectionPath: PublicPath, nftType: Type, metadata: {String: AnyStruct} ): @WrappedCollection.NFT {
+        return <- create NFT(nft: <- nft, address: address, underlyingCollectionPath: collectionPath, nftType: nftType, metadata: metadata)
     }
     
 

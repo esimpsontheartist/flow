@@ -1,4 +1,5 @@
 import NonFungibleToken from "./NonFungibleToken.cdc"
+import TypedMetadata from "./TypedMetadata.cdc"
 import EnumerableSet from "./EnumerableSet.cdc"
 import PriceBook from "./PriceBook.cdc"
 
@@ -11,7 +12,12 @@ pub contract Fraction: NonFungibleToken {
 
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
-
+	// The API endpoint for Fraction metadata
+	access(account) var uriEndpoint: String
+	//A function to set the URI endpoint
+	access(account) fun setUriEndpoint(_ uriEndpoint: String) {
+		self.uriEndpoint = uriEndpoint
+	}
 	//Total supply for a given fraction id
 	access(account) let fractionSupply: {UInt256: UInt256}
 
@@ -37,137 +43,82 @@ pub contract Fraction: NonFungibleToken {
     pub event Deposit(id: UInt64, to: Address?)
 
 	
-    pub struct FractionData {
+	pub struct FractionData {
 		pub let vaultId: UInt256
+		pub let uri: String
+		pub let curator: Address
 		pub let name: String
-		pub let thumbnail: String
 		pub let description: String
-		pub let source: String
-		pub let media: String
-		pub let contentType: String
-		pub let protocol: String
 
         init(
 			vaultId: UInt256,
+			uri: String,
+			curator: Address,
 			name: String,
-			thumbnail: String,
-			description: String,
-			source: String,
-			media: String,
-			contentType: String,
-			protocol: String
+			description: String
 		) {
 			self.vaultId = vaultId
-			self.name = name 
-			self.thumbnail = thumbnail 
-			self.description = description 
-			self.source = source 
-			self.media = media 
-			self.contentType = contentType
-			self.protocol = protocol 
+			self.uri = uri
+			self.curator = curator
+			self.name = name
+			self.description = description
         }
 	}
 
-    //mapping of vaultId to Fraction Data
-	//this data gets stored in order to be used by other contracts that mint fractions during a transaction
-    access(account) let vaultToFractionData: {UInt256: FractionData}
+	access(account) let vaultToFractionData: {UInt256: FractionData}
 
-	pub resource Administrator { 
-		pub fun setVaultFractionData(vaultId: UInt256, fractionData: FractionData) {
-			Fraction.vaultToFractionData[vaultId] = fractionData
-		}
-	}
+	pub event MintFractions(ids: [UInt64], metadata: FractionData)
 	
-
-	pub struct Metadata { 
-		pub let vaultId: UInt256
-		pub let name: String
-		pub let thumbnail: String
-		pub let description: String
-		pub let source: String
-		pub let media: String
-		pub let contentType: String
-		pub let protocol: String
-
-		init(
-			vaultId: UInt256,
-			name: String,
-			thumbnail: String,
-			description: String,
-			source: String,
-			media: String,
-			contentType: String,
-			protocol: String
-
-		) {
-			self.vaultId = vaultId
-			self.name = name
-			self.thumbnail = thumbnail
-			self.description = description
-			self.source = source
-			self.media = media
-			self.contentType = contentType
-			self.protocol = protocol
-		}
-	}
-
-	pub event MintFractions(ids: [UInt64], metadata: Metadata)
-	
-	pub resource interface Public {
-		pub let id: UInt64
-		pub let vaultId: UInt256
-		pub let name: String
-		pub let thumbnail: String
-		pub let description: String
-		pub let source: String
-		pub let media: String
-		pub let contentType: String
-		pub let protocol: String
-	}
-
 	//The resource that represents the
-    pub resource NFT: NonFungibleToken.INFT, Public {
+    pub resource NFT: NonFungibleToken.INFT, TypedMetadata.ViewResolver {
 
 		//global unique fraction ID
         pub let id: UInt64
 		//Id to separate fractions by vault
 		pub let vaultId: UInt256
-		//name of the fraction collection
+		//Uri used to display data for a fraction
+		pub let uri: String
+		//Curator for the fraction
+		pub let curator: Address
+		//Name given to the vault/fractions
 		pub let name: String
-		//thumbnail to be shown in the blocto wallet
-		pub let thumbnail: String
-		//description
+		//Description given for the vault/fractions
 		pub let description: String
-		//From what protocol does this NFT come from
-		pub let source: String
-		//data for the media
-		pub let media: String
-		//type of the content for the media (jpeg, gif, etc)
-		pub let contentType: String
-		//protocol of the media (ipfs, http, etc)
-		pub let protocol: String
 
         init(
 			id: UInt64, 
 			vaultId: UInt256,
-			name: String,
-			thumbnail: String,
-			description: String,
-			source: String,
-			media: String,
-			contentType: String,
-			protocol: String
 		) {
             self.id = id
 			self.vaultId = vaultId
-			self.name = name 
-			self.thumbnail = thumbnail 
-			self.description = description 
-			self.source = source 
-			self.media = media 
-			self.contentType = contentType
-			self.protocol = protocol 
-        }
+			self.curator = Fraction.vaultToFractionData[self.vaultId]!.curator
+			self.name = Fraction.vaultToFractionData[self.vaultId]!.name
+			self.description = Fraction.vaultToFractionData[self.vaultId]!.description
+			self.uri = Fraction.vaultToFractionData[self.vaultId]!.uri
+		}
+
+		//A function to return the Type of views supported by the NFT
+		pub fun getViews(): [Type] {
+			return [
+				Type<String>(),
+				Type<TypedMetadata.Display>()
+			]
+		}
+
+		//A function to return the Struct for a given Type of view supported by the NFT
+		pub fun resolveView(_ type: Type): AnyStruct {
+
+			if type == Type<String>() {
+				return self.name.concat(" ").concat(" by: ").concat(self.curator.toString()).concat("vaultId: ").concat(self.vaultId.toString()).concat("fractionId: ").concat(self.id.toString())
+			}
+
+			if type == Type<TypedMetadata.Display>() {
+				return TypedMetadata.Display(name: self.name, thumbnail: self.uri, description: self.description, source: "fractional")
+			}
+			
+			//return nil if the typed passed is not supported
+			return nil
+		}
 
 		destroy() {
 			let priceBook = PriceBook.fractionPrices[self.vaultId] ?? {}
@@ -188,7 +139,7 @@ pub contract Fraction: NonFungibleToken {
 		pub fun getIDs(): [UInt64]
 		pub fun getIDsByVault(vaultId: UInt256): [UInt64]
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-		pub fun borrowFraction(id: UInt64): &{Fraction.Public}?
+		pub fun borrowFraction(id: UInt64): &Fraction.NFT?
 		pub fun balance(): UInt256
 	}
 
@@ -256,7 +207,7 @@ pub contract Fraction: NonFungibleToken {
 
 		// Returns a borrowed reference to a Fraction
         // so that the caller can read data and call methods from it
-		pub fun borrowFraction(id: UInt64): &{Fraction.Public}? {
+		pub fun borrowFraction(id: UInt64): &Fraction.NFT? {
 			if self.ownedNFTs[id] != nil {
 				let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
 				return ref as! &Fraction.NFT
@@ -293,32 +244,16 @@ pub contract Fraction: NonFungibleToken {
 
 		pre {
 			self.fractionSupply[vaultId] ?? 0 as UInt256 < self.maxVaultSupply[vaultId]! : "mintFractions:vault cant mint more fractions!"
-			self.vaultToFractionData[vaultId] != nil : "mintFractions:no data to mint the fractions"
 		}
 
 		let newCollection <- create Collection()
-
-		let name = self.vaultToFractionData[vaultId]!.name
-		let thumbnail = self.vaultToFractionData[vaultId]!.thumbnail
-		let description = self.vaultToFractionData[vaultId]!.description
-		let source = self.vaultToFractionData[vaultId]!.source
-		let media = self.vaultToFractionData[vaultId]!.media
-		let contentType = self.vaultToFractionData[vaultId]!.contentType
-		let protocol = self.vaultToFractionData[vaultId]!.protocol
 
 		var ids: [UInt64] = []
 		var i: UInt256 = 0 
 		while i < amount {
 			newCollection.deposit(token: <- create NFT(
 					id: Fraction.totalSupply, 
-					vaultId: vaultId,
-					name: name,
-					thumbnail: thumbnail,
-					description: description,
-					source: source,
-					media: media,
-					contentType: contentType,
-					protocol: protocol
+					vaultId: vaultId
 				)
 			)
 			ids.append(Fraction.totalSupply)
@@ -327,15 +262,12 @@ pub contract Fraction: NonFungibleToken {
 			i = i + 1
 		}
 
-		let metadata = Metadata(
+		let metadata = FractionData(
 			vaultId: vaultId,
+			uri: self.vaultToFractionData[vaultId]!.uri,
+			curator: self.vaultToFractionData[vaultId]!.curator,
 			name: self.vaultToFractionData[vaultId]!.name,
-			thumbnail: self.vaultToFractionData[vaultId]!.thumbnail,
 			description: self.vaultToFractionData[vaultId]!.description,
-			source: self.vaultToFractionData[vaultId]!.source,
-			media: self.vaultToFractionData[vaultId]!.media,
-			contentType: self.vaultToFractionData[vaultId]!.contentType,
-			protocol: self.vaultToFractionData[vaultId]!.protocol
 		)
 
 		emit MintFractions(ids: ids, metadata: metadata)
@@ -358,20 +290,18 @@ pub contract Fraction: NonFungibleToken {
 	}
 
     init() {
-        
 		self.CollectionPublicPath = /public/fractionalCollection
 		self.CollectionPrivatePath = /private/fractionalCollection
 		self.CollectionStoragePath = /storage/fractionalCollection
 		self.AdministratorStoragePath = /storage/fractionAdmin
 
 		self.totalSupply = 0
+		self.uriEndpoint = ""
 		self.fractionSupply = {}
 		self.idToVault = {}
-		self.vaultToFractionData = {}
 		self.maxVaultSupply = {}
+		self.vaultToFractionData = {}
 
-		let admin <- create Administrator()
-        self.account.save(<- admin, to: self.AdministratorStoragePath)
 		self.account.save<@NonFungibleToken.Collection>(<- Fraction.createEmptyCollection(), to: Fraction.CollectionStoragePath)
 		self.account.link<&{Fraction.CollectionPublic}>(Fraction.CollectionPublicPath, target: Fraction.CollectionStoragePath)
 		self.account.link<&Fraction.Collection>(Fraction.CollectionPrivatePath, target: Fraction.CollectionStoragePath)

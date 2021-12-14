@@ -1,5 +1,5 @@
-import RaribleNFT from "../../../contracts/third-party/RaribleNFT.cdc"
-import FUSD from "../../../contracts/core/FUSD.cdc"
+import AllDay from "../../../contracts/third-party/AllDay.cdc"
+import FlowToken from "../../../contracts/core/FlowToken.cdc"
 import FungibleToken from "../../../contracts/core/FungibleToken.cdc"
 import NonFungibleToken from "../../../contracts/core/NonFungibleToken.cdc"
 import FractionalVault from "../../../contracts/FractionalVault.cdc"
@@ -9,18 +9,18 @@ transaction(
     nftIds: [UInt64], 
     fractionCurator: Address,
     maxSupply: UInt256,
-    name: String, 
+    name: String,
     description: String
 ) {
-    //Collection to pull the rarible moments from
-    let raribleProvider: &RaribleNFT.Collection
+    //Collection to pull the topshot moments from
+    let allDayProvider: &AllDay.Collection
     //Curator capability to mint or list fractions
     let curator: Capability<&Fraction.Collection>
 
     prepare(account: AuthAccount) {
 
-        self.raribleProvider = account.borrow<&RaribleNFT.Collection>(from: RaribleNFT.collectionStoragePath) 
-        ?? panic("could not borrow a reference to the rarible collection")
+        self.allDayProvider = account.borrow<&AllDay.Collection>(from: AllDay.CollectionStoragePath) 
+        ?? panic("could not borrow a reference to the topshot collection")
 
         self.curator = account.getCapability<&Fraction.Collection>(Fraction.CollectionPrivatePath)
     }
@@ -30,21 +30,21 @@ transaction(
     }
 
     execute {
-        //rarible moments to fractionalize
-        let raribleCollection <- RaribleNFT.createEmptyCollection() as! @RaribleNFT.Collection
-        //Filling the metadata array
-        for id in nftIds {
-            raribleCollection.deposit(token: <- self.raribleProvider.withdraw(withdrawID: id))
-        }
+        //Topshot moments to fractionalize
+        let allDayCollection <- AllDay.createEmptyCollection()
 
+        for id in nftIds {
+            allDayCollection.deposit(token: <- self.allDayProvider.withdraw(withdrawID: id))
+        }
+        
         FractionalVault.mintVault(
-            collection: <- raribleCollection, 
-            collectionType: Type<@RaribleNFT.Collection>(),
-            bidVault: <- FUSD.createEmptyVault(),
-            bidVaultType: Type<@FUSD.Vault>(),
+            collection: <- allDayCollection, 
+            collectionType: Type<@AllDay.Collection>(),
+            bidVault: <- FlowToken.createEmptyVault(),
+            bidVaultType: Type<@FlowToken.Vault>(),
             curator: self.curator, 
             maxSupply: maxSupply,
-            name: name, 
+            name: name,
             description: description
         )
     }   

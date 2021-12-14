@@ -8,7 +8,9 @@ import Fraction from "../../../contracts/Fraction.cdc"
 transaction(
     nftIds: [UInt64], 
     fractionCurator: Address,
-    maxSupply: UInt256
+    maxSupply: UInt256,
+    name: String, 
+    description: String
 ) {
     //Collection to pull the MotoGP Cards from
     let cmRewardProvider: &ChainmonstersRewards.Collection
@@ -37,7 +39,9 @@ transaction(
             bidVault: <- FlowToken.createEmptyVault(),
             bidVaultType: Type<@FlowToken.Vault>(),
             curator: self.curator, 
-            maxSupply: maxSupply
+            maxSupply: maxSupply,
+            name: name,
+            description: description
         )
     }   
 }

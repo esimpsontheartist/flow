@@ -24,12 +24,14 @@ transaction(
         let wrappedCollection = self.wrappedCollectionCap.borrow() ?? panic("could not borrow wrapped collection")
 
         for id in nftIds {
+            let ref = self.collection.borrowNFT(id: id)
             let underlying <- self.collection.withdraw(withdrawID: id) as! @ExampleNFT.NFT
             let type = underlying.getType()
             let path = underlying.collectionPath
-            let address = underlying.owner?.address!
+            let address = ref.owner?.address!
+            let metadata: {String: AnyStruct} = {"uri": "https://rinkeby-api.fractional.art/fractions/10"}
             //wrap the underlying
-            let wrapped <- WrappedCollection.wrap(nft: <- underlying, address: address, collectionPath: path, nftType: type)
+            let wrapped <- WrappedCollection.wrap(nft: <- underlying, address: address, collectionPath: path, nftType: type, metadata: metadata)
 
             wrappedCollection.deposit(token: <- wrapped)
         }

@@ -25,7 +25,7 @@ pub contract WrappedCollection: NonFungibleToken {
        pub fun borrowNFT(): &NonFungibleToken.NFT
     }
 
-    // An NFT wrapped with useful information (by @briandilley)
+    // An NFT wrapped with useful information (inspired by a WNFT contract by @briandilley)
     pub resource NFT : WrappedNFT, NonFungibleToken.INFT {
         pub let id: UInt64
         access(contract) var nft: @NonFungibleToken.NFT?

@@ -24,9 +24,11 @@ pub contract ExampleNFT: NonFungibleToken {
 
     pub resource NFT: NonFungibleToken.INFT, Public {
         pub let id: UInt64
+		pub let uri: String
 		pub let collectionPath: PublicPath
         init() {
             self.id = ExampleNFT.totalSupply
+			self.uri = "https://rinkeby-api.fractional.art/fractions/10"
 			self.collectionPath = ExampleNFT.CollectionPublicPath
             ExampleNFT.totalSupply = ExampleNFT.totalSupply + 1
         }
