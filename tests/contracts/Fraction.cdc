@@ -1,11 +1,10 @@
 import NonFungibleToken from "./NonFungibleToken.cdc"
 import TypedMetadata from "./TypedMetadata.cdc"
 import EnumerableSet from "./EnumerableSet.cdc"
-import PriceBook from "./PriceBook.cdc"
 
 pub contract Fraction: NonFungibleToken {
 
-	// PROHIBBIT CONTRACT OWNER FROM MINTING
+	// PROHIBIT CONTRACT OWNER FROM MINTING
 	pub let CollectionStoragePath: StoragePath
 	pub let CollectionPublicPath: PublicPath
 	pub let CollectionPrivatePath: PrivatePath
@@ -21,11 +20,6 @@ pub contract Fraction: NonFungibleToken {
 	}
 	//Total supply for a given fraction id
 	access(account) let fractionSupply: {UInt64: UInt256}
-
-	//Total supply that can be minted for a vault
-	access(account) let maxVaultSupply: {UInt64: UInt256}
-	//Fraction id to vault id 
-	access(account) let idToVault: {UInt64: UInt64}
 
     // Event that emitted when the NFT contract is initialized
     pub event ContractInitialized()
@@ -133,17 +127,6 @@ pub contract Fraction: NonFungibleToken {
 			return nil
 		}
 
-		destroy() {
-			let priceBook = PriceBook.fractionPrices[self.vaultId] ?? {}
-			if priceBook.length > 0 && priceBook[self.id] != nil{
-				PriceBook.removeFromPrice(self.vaultId, 1, priceBook[self.id]!)
-			}
-			//remove from price because we are burning the NFT
-			Fraction.fractionSupply[self.vaultId] = Fraction.fractionSupply[self.vaultId]! - 1
-			// update PriceBook
-			PriceBook.removeFromSupply(self.vaultId, 1)
-		}
-
     }
 
     //Standard NFT collectionPublic interface (should add a method to borrow a reference to the fraction?)
@@ -154,15 +137,8 @@ pub contract Fraction: NonFungibleToken {
 		pub fun borrowFraction(id: UInt64): &Fraction.NFT?
 	}
 
-	//Interface for the Fractional Vault 
-	//Prevents fractions from being deposited to a vault through the `deposit()` function
-	pub resource interface CollectionRestricted {
-		pub fun getIDs(): [UInt64]
-		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-		pub fun borrowFraction(id: UInt64): &Fraction.NFT?
-	}
 	//Stored by other contracts or a temporary means of moving multiple fractions
-    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectionPublic, CollectionRestricted {
+    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectionPublic {
         
 		// dictionary of NFT conforming tokens
 		// NFT is a resource type with an `UInt64` ID field
@@ -354,10 +330,6 @@ pub contract Fraction: NonFungibleToken {
 		vaultId: UInt64
 	): @Collection {
 
-		pre {
-			self.fractionSupply[vaultId] ?? 0 as UInt256 < self.maxVaultSupply[vaultId]! : "mintFractions:vault cant mint more fractions!"
-		}
-
 		let newCollection <- create Collection()
 
 		var ids: [UInt64] = []
@@ -369,7 +341,6 @@ pub contract Fraction: NonFungibleToken {
 				)
 			)
 			ids.append(Fraction.totalSupply)
-			self.idToVault[self.totalSupply] = vaultId
 			self.totalSupply = self.totalSupply + 1
 			i = i + 1
 		}
@@ -390,8 +361,6 @@ pub contract Fraction: NonFungibleToken {
 		else {
 			self.fractionSupply[vaultId] = self.fractionSupply[vaultId]! + amount
 		}
-
-		PriceBook.addToSupply(vaultId, amount)
 		
 		return <- newCollection
 	}
@@ -410,8 +379,6 @@ pub contract Fraction: NonFungibleToken {
 		self.totalSupply = 0
 		self.baseURI = ""
 		self.fractionSupply = {}
-		self.idToVault = {}
-		self.maxVaultSupply = {}
 		self.vaultToFractionData = {}
 
 		self.account.save<@Fraction.BulkCollection>(<- self.createBulkCollection(), to: Fraction.CollectionStoragePath)
