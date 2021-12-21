@@ -61,7 +61,7 @@ pub contract FractionFixedPriceSale {
         pub let amount: UInt256
         pub let salePaymentType: Type
         pub let receiver: Capability<&{FungibleToken.Receiver}>
-        pub let curator: Capability<&Fraction.Collection>
+        pub let curator: Capability<&Fraction.BulkCollection>
         pub var discontinued: Bool
         
         init(
@@ -70,7 +70,7 @@ pub contract FractionFixedPriceSale {
             amount: UInt256,
             salePrice: UFix64,
             salePaymentType: Type,
-            curator: Capability<&Fraction.Collection>,
+            curator: Capability<&Fraction.BulkCollection>,
             receiver: Capability<&{FungibleToken.Receiver}>
         ){
             self.id = id
@@ -136,7 +136,7 @@ pub contract FractionFixedPriceSale {
         //Curator list a number of fractions for sale
         pub fun list(
             vaultId: UInt256, 
-            curator: Capability<&Fraction.Collection>,
+            curator: Capability<&Fraction.BulkCollection>,
             amount: UInt256, 
             salePrice: UFix64,
             salePaymentType: Type,

@@ -6,10 +6,10 @@ import Fraction from "../../contracts/Fraction.cdc"
 
 pub fun main(address: Address): UInt256 {
     let account = getAccount(address)
-
+    log("getCollectionBalance!!!!!!!")
     let collectionRef = account.getCapability(Fraction.CollectionPublicPath)!
-        .borrow<&{Fraction.CollectionPublic}>()
+        .borrow<&{Fraction.BulkCollectionPublic}>()
         ?? panic("Could not borrow capability from public collection")
     
-    return collectionRef.balance()
+    return UInt256(collectionRef.getIDs().length)
 }

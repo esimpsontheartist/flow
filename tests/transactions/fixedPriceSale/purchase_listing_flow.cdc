@@ -14,7 +14,7 @@ transaction(
     //Payment for the listing
     let payment: @FungibleToken.Vault
     //Capability to receive the fractions from the listing
-    let fractionCollection: &{Fraction.CollectionPublic}
+    let fractionCollection: &{Fraction.BulkCollectionPublic}
 
     prepare(signer: AuthAccount){
         self.fixedSaleCollection = getAccount(seller).getCapability<&{FractionFixedPriceSale.FixedSaleCollectionPublic}>(FractionFixedPriceSale.CollectionPublicPath).borrow()
@@ -25,7 +25,7 @@ transaction(
 
         self.payment <- vaultRef.withdraw(amount: amount)
 
-        self.fractionCollection = signer.getCapability<&{Fraction.CollectionPublic}>(Fraction.CollectionPublicPath).borrow()
+        self.fractionCollection = signer.getCapability<&{Fraction.BulkCollectionPublic}>(Fraction.CollectionPublicPath).borrow()
         ?? panic("Could not borrow a reference to the Fraction collection")
     }
 

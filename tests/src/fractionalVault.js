@@ -149,10 +149,10 @@ export const bid = async (signer, vaultId, amount) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const cash = async (signer, vaultId, fractionIds) => {
+export const cash = async (signer, vaultId) => {
 
 	const name = "vault/cash";
-	const args = [vaultId, fractionIds]
+	const args = [vaultId]
 	const signers = [signer]
 
 	return sendTransaction({ name, args, signers, limit: 9999 })
@@ -258,21 +258,6 @@ export const getBidVaultBalance = async (vaultId) => {
 	return executeScript({ name, args });
 };
 
-
-/*
- * Returns the ids of the fractions that the vault has
- * Same as seeing how many fractions have been sent for cashing
- * Can also be used to check if a vault has been redeemed
- * @param {UInt256} vaultId - the vaults id
- * @throws Will throw an error if execution will be halted
- * @returns {[UInt64]?}
- * */
-export const getFractionIds = async (vaultId) => {
-	const name = "vault/get_fractionIds";
-	const args = [vaultId];
-
-	return executeScript({ name, args });
-};
 
 /*
  * Returns the UUIDs of the underlying NFTs in the collection

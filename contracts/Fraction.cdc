@@ -130,7 +130,7 @@ pub contract Fraction: NonFungibleToken {
 
     }
 
-    //Standard NFT collectionPublic interface (should add a method to borrow a reference to the fraction?)
+    //Standard NFT collectionPublic interface
 	pub resource interface CollectionPublic {
 		pub fun deposit(token: @NonFungibleToken.NFT)
 		pub fun getIDs(): [UInt64]

@@ -6,6 +6,7 @@ import Fraction from "../../contracts/Fraction.cdc"
 pub fun main(address: Address): [UInt64] {
     let account = getAccount(address)
 
+    log("getCollectionIds!!!!!!!")
     let collectionRef = account.getCapability(Fraction.CollectionPublicPath)!.borrow<&{NonFungibleToken.CollectionPublic}>()
         ?? panic("Could not borrow capability from public collection")
     

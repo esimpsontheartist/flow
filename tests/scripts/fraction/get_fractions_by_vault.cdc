@@ -6,8 +6,8 @@ import Fraction from "../../contracts/Fraction.cdc"
 
 pub fun main(address: Address, vaultId: UInt256): [UInt64] {
     let account = getAccount(address)
-
-    let collectionRef = account.getCapability(Fraction.CollectionPublicPath)!.borrow<&{Fraction.CollectionPublic}>()
+    log("getFractionsByVault!!!!!!")
+    let collectionRef = account.getCapability(Fraction.CollectionPublicPath)!.borrow<&{Fraction.BulkCollectionPublic}>()
         ?? panic("Could not borrow capability from public collection")
     
     return collectionRef.getIDsByVault(vaultId: vaultId)

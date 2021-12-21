@@ -5,10 +5,10 @@ import FractionalVault from "../../contracts/FractionalVault.cdc"
 
 transaction(vaultId: UInt256, startId: UInt64, amount: UInt256, newPrice: UFix64) {
 
-    let fractions: &Fraction.Collection
+    let fractions: &Fraction.BulkCollection
     
     prepare(signer: AuthAccount) {
-        self.fractions = signer.borrow<&Fraction.Collection>(from: Fraction.CollectionStoragePath) ?? panic("Could not borrow a refercen to the collection of fractions")
+        self.fractions = signer.borrow<&Fraction.BulkCollection>(from: Fraction.CollectionStoragePath) ?? panic("Could not borrow a refercen to the collection of fractions")
     }
 
     execute {

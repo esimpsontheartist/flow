@@ -14,13 +14,13 @@ transaction(
     //A capability to receive Flow for a sale
     let receiver: Capability<&{FungibleToken.Receiver}>
     //A capability to the curator's fractions
-    let curator: Capability<&Fraction.Collection>
+    let curator: Capability<&Fraction.BulkCollection>
     //
     prepare(signer: AuthAccount){
         self.fixedSaleCollection = signer.borrow<&FractionFixedPriceSale.FixedSaleCollection>(from: FractionFixedPriceSale.CollectionStoragePath)
         ?? panic("could not borrow a reference for the fixed price sale")
 
-        self.curator = signer.getCapability<&Fraction.Collection>(Fraction.CollectionPrivatePath)
+        self.curator = signer.getCapability<&Fraction.BulkCollection>(Fraction.CollectionPrivatePath)
 
         self.receiver = signer.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
     }

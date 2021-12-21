@@ -7,7 +7,7 @@ import WrappedCollection from "../../contracts/WrappedCollection.cdc"
 transaction(vaultId: UInt256, amount: UInt256) {
 
     //Reference to the signers Fraction collection
-    let usersCollection: &Fraction.Collection
+    let usersCollection: &Fraction.BulkCollection
     //Address where the vaults are stored
     let fractionalVault: &FractionalVault.Vault
     //Capability that places the bids
@@ -23,8 +23,8 @@ transaction(vaultId: UInt256, amount: UInt256) {
         self.fractionalVault = vaultCollection.borrowVault(id: vaultId) 
             ?? panic("Could not get a refernce to a vault with the given id")
             
-        self.usersCollection = signer.borrow<&Fraction.Collection>(from: Fraction.CollectionStoragePath)
-            ?? panic("Could not borrow reference to the owner's Vault!")
+        self.usersCollection = signer.borrow<&Fraction.BulkCollection>(from: Fraction.CollectionStoragePath)
+            ?? panic("Could not borrow reference to the owner's Fraction collection!")
 
         self.redeemer = signer.getCapability<&{NonFungibleToken.CollectionPublic}>(WrappedCollection.CollectionPublicPath)
     }

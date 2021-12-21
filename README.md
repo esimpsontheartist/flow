@@ -7,19 +7,22 @@
 
 ## Addresses
 
-| Contract          | Testnet              |
-|-------------------|----------------------|
-| EnumerableSet     | `0x0f95c7487c2c05c8` |
-| WrappedCollection | `0x0f95c7487c2c05c8` |
-| PriceBook         | `0x0f95c7487c2c05c8` |
-| Fraction          | `0x0f95c7487c2c05c8` |
-| FractionalVault   | `0x0f95c7487c2c05c8` |
+| Contract               | Testnet              |
+|------------------------|----------------------|
+| EnumerableSet          | `...`                |
+| WrappedCollection      | `...`                |
+| PriceBook              | `...`                |
+| Fraction               | `...`                |
+| FractionalVault        | `...`                |
+| FractionFixedPriceSale | `...`                |
+| VaultMetadata          | `...`                |
+
 
 Additionally, an `ExampleNFT` contract was deployed to the address above for testing purposes (emulator and testnet only).
 
 ## Smart contracts
 
-`EnumerableSet`: An implementation of Openzepplins [EnumberableSet](https://docs.openzeppelin.com/contracts/4.x/api/utils#EnumerableSet) in Cadence.
+`EnumerableSet`: An implementation of Openzeppelin's [EnumberableSet](https://docs.openzeppelin.com/contracts/4.x/api/utils#EnumerableSet) in Cadence.
 
 `WrappedCollection`: A custom NFT collection that wraps NFTs in order to preserve some data about them.
 
@@ -28,6 +31,8 @@ Additionally, an `ExampleNFT` contract was deployed to the address above for tes
 `Fraction`: An NFT contract to represent vault fractions as NFTs.
 
 `FractionalVault`: The main contract, defines the `Vault` resource, which holds can hold one or many NFTs for a given collection through [Run-time types](https://docs.onflow.org/cadence/language/run-time-types/#gatsby-focus-wrapper) or a collection of different NFTs through the `WrappedCollection.Collection` resource.
+
+`FractionFixedPriceSale`: A contract that allows a vault curator to
 
 ## Directory structure
 

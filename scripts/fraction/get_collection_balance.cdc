@@ -11,5 +11,5 @@ pub fun main(address: Address): UInt256 {
         .borrow<&{Fraction.CollectionPublic}>()
         ?? panic("Could not borrow capability from public collection")
     
-    return collectionRef.balance()
+    return UInt256(collectionRef.getIDs().length)
 }

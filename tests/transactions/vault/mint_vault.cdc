@@ -14,14 +14,14 @@ transaction(
     //An example NFT collection
     let collection: &WrappedCollection.Collection
     
-    let curator: Capability<&Fraction.Collection>
+    let curator: Capability<&Fraction.BulkCollection>
     //The user authorizes borrowing the transaction to borrow the collection
     prepare(account: AuthAccount) {
         
         self.collection = account.borrow<&WrappedCollection.Collection>(from: WrappedCollection.CollectionStoragePath) 
         ?? panic("could not load collection")
 
-        self.curator = account.getCapability<&Fraction.Collection>(Fraction.CollectionPrivatePath)
+        self.curator = account.getCapability<&Fraction.BulkCollection>(Fraction.CollectionPrivatePath)
     }
 
     pre {

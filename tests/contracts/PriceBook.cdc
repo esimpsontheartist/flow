@@ -11,18 +11,18 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
     // Fraction Information
     // Fraction supply by Vault Id
-    access(account) let fractionSupply: {UInt256: UInt256}
+    access(account) let fractionSupply: {UInt64: UInt256}
 
     
     pub event Prices(prices: [UFix64])
     
     // A function to decrease supply in the mapping
-    access(account) fun removeFromSupply(_ vaultId: UInt256, _ amount: UInt256) {
+    access(account) fun removeFromSupply(_ vaultId: UInt64, _ amount: UInt256) {
         self.fractionSupply[vaultId] = self.fractionSupply[vaultId]! - amount
     }
     
     // A function to increase the supply in the mapping
-     access(account) fun addToSupply(_ vaultId: UInt256, _ amount: UInt256) {
+     access(account) fun addToSupply(_ vaultId: UInt64, _ amount: UInt256) {
         if self.fractionSupply[vaultId] == nil {
             self.fractionSupply[vaultId] = amount
         } else {
@@ -43,15 +43,15 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
     //Vault information//
     //Array of prices with more than 1% voting for them by vaultId
-    access(account) let prices: {UInt256: EnumerableSet.UFix64Set}
+    access(account) let prices: {UInt64: EnumerableSet.UFix64Set}
     //All prices and the number voting for them
-    access(account)  let priceToCount: {UInt256: {UFix64: UInt256}}
+    access(account)  let priceToCount: {UInt64: {UFix64: UInt256}}
     //The price each fraction is bidding
-    access(account)  let fractionPrices: {UInt256: {UInt64: UFix64}}
+    access(account)  let fractionPrices: {UInt64: {UInt64: UFix64}}
 
     // add to a price count
     // add price to reserve calc if 1% are voting for it
-    access(account) fun addToPrice(_ vaultId: UInt256, _ amount: UInt256, _ price: UFix64) {
+    access(account) fun addToPrice(_ vaultId: UInt64, _ amount: UInt256, _ price: UFix64) {
         if self.prices[vaultId] == nil {
             self.prices.insert(key: vaultId, EnumerableSet.UFix64Set())
         }
@@ -74,7 +74,7 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
     // remove a price count
     // remove price from reserve calc if less than 1% are voting for it
-    access(account) fun removeFromPrice(_ vaultId: UInt256, _ amount: UInt256, _ oldPrice: UFix64) {
+    access(account) fun removeFromPrice(_ vaultId: UInt64, _ amount: UInt256, _ oldPrice: UFix64) {
         let nested = self.priceToCount[vaultId] ?? {}
         
         if nested[oldPrice] == nil {
@@ -140,7 +140,7 @@ import EnumerableSet from "./EnumerableSet.cdc"
         return arr
     }
 
-    pub fun reservePrice(_ vaultId: UInt256): ReserveInfo {
+    pub fun reservePrice(_ vaultId: UInt64): ReserveInfo {
 
         var tempPrices: [UFix64]? = self.prices[vaultId]?.values()
         if tempPrices == nil {
