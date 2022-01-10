@@ -1,14 +1,13 @@
 import NonFungibleToken from "./NonFungibleToken.cdc"
-import TypedMetadata from "./TypedMetadata.cdc"
 import EnumerableSet from "./EnumerableSet.cdc"
 
 pub contract Fraction: NonFungibleToken {
 
-	// PROHIBIT CONTRACT OWNER FROM MINTING
 	pub let CollectionStoragePath: StoragePath
 	pub let CollectionPublicPath: PublicPath
 	pub let CollectionPrivatePath: PrivatePath
 	pub let AdministratorStoragePath: StoragePath
+	pub let BurnerPath: PublicPath
 
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
@@ -18,7 +17,7 @@ pub contract Fraction: NonFungibleToken {
 	access(account) fun setUriBase(_ uri: String) {
 		self.baseURI = uri
 	}
-	//Total supply for a given fraction id
+	//Total fraction supply for a given vault id
 	access(account) let fractionSupply: {UInt64: UInt256}
 
     // Event that emitted when the NFT contract is initialized
@@ -75,9 +74,27 @@ pub contract Fraction: NonFungibleToken {
 	access(account) let vaultToFractionData: {UInt64: FractionData}
 
 	pub event MintFractions(ids: [UInt64], metadata: FractionData)
-	
+
+	pub struct interface Hook {
+		access(account) fun beforeTransfer(
+			from: Address?,
+			to: Address?, 
+			amount: UInt256, 
+			vaultId: UInt64
+		)
+
+		access(account) fun onBurn(
+			from: Address?,
+			amount: UInt256, 
+			vaultId: UInt64
+		)
+	}
+
+	//Transfer methods for fractions by vault
+	access(account) let hooks: {UInt64: {Hook}}
+
 	//The resource that represents the Fraction NFT
-    pub resource NFT: NonFungibleToken.INFT, TypedMetadata.ViewResolver {
+    pub resource NFT: NonFungibleToken.INFT {
 
 		//global unique fraction ID
         pub let id: UInt64
@@ -94,7 +111,7 @@ pub contract Fraction: NonFungibleToken {
 
         init(
 			id: UInt64, 
-			vaultId: UInt64,
+			vaultId: UInt64
 		) {
             self.id = id
 			self.vaultId = vaultId
@@ -104,32 +121,18 @@ pub contract Fraction: NonFungibleToken {
 			self.uri = Fraction.vaultToFractionData[self.vaultId]!.uri
 		}
 
-		//A function to return the Type of views supported by the NFT
-		pub fun getViews(): [Type] {
-			return [
-				Type<String>(),
-				Type<TypedMetadata.Display>()
-			]
-		}
-
-		//A function to return the Struct for a given Type of view supported by the NFT
-		pub fun resolveView(_ type: Type): AnyStruct {
-
-			if type == Type<String>() {
-				return self.name.concat(" ").concat(" by: ").concat(self.curator.toString()).concat("vaultId: ").concat(self.vaultId.toString()).concat("fractionId: ").concat(self.id.toString())
+		destroy(){
+			if self.owner != nil {
+				Fraction.hooks[self.vaultId]?.onBurn(
+					from: self.owner?.address,
+					amount: 1,
+					vaultId: self.vaultId
+				)
 			}
-
-			if type == Type<TypedMetadata.Display>() {
-				return TypedMetadata.Display(name: self.name, thumbnail: self.uri, description: self.description, source: "fractional")
-			}
-			
-			//return nil if the typed passed is not supported
-			return nil
 		}
-
     }
 
-    //Standard NFT collectionPublic interface (should add a method to borrow a reference to the fraction?)
+    //Standard NFT collectionPublic interface
 	pub resource interface CollectionPublic {
 		pub fun deposit(token: @NonFungibleToken.NFT)
 		pub fun getIDs(): [UInt64]
@@ -152,7 +155,13 @@ pub contract Fraction: NonFungibleToken {
 		pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
 			let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 			emit Withdraw(id: token.id, from: self.owner?.address)
-
+			let ref = (&token as auth &NonFungibleToken.NFT) as! &Fraction.NFT
+			Fraction.hooks[ref.vaultId]?.beforeTransfer(
+				from: self.owner?.address, 
+				to: nil, 
+				amount: 1, 
+				vaultId: ref.vaultId
+			)
 			return <-token
 		}
 
@@ -165,10 +174,14 @@ pub contract Fraction: NonFungibleToken {
 			let vaultId: UInt64 = token.vaultId
 			// add the new token to the dictionary which removes the old one
 			let oldToken <- self.ownedNFTs[id] <- token
-
+			Fraction.hooks[vaultId]?.beforeTransfer(
+				from: nil, 
+				to: self.owner?.address, 
+				amount: 1, 
+				vaultId: vaultId
+			)
 			emit Deposit(id: id, to: self.owner?.address)
 
-			
 			destroy oldToken
 		}
 
@@ -198,6 +211,7 @@ pub contract Fraction: NonFungibleToken {
 		}
 
         destroy() {
+			//call beforeTransfer here
 			destroy self.ownedNFTs
 		}
 
@@ -234,7 +248,6 @@ pub contract Fraction: NonFungibleToken {
 
 			// Withdraw the Fraction NFT
 			let token <- self.ownedCollections[vaultId]?.withdraw(withdrawID: withdrawID)!
-
 			//remove from the mappings
 			self.fractionToVault.remove(key: withdrawID) 
 			self.vaultToFractions[vaultId]?.remove(withdrawID)
@@ -258,12 +271,8 @@ pub contract Fraction: NonFungibleToken {
 				self.ownedCollections[vaultId] <-! Fraction.createEmptyCollection() as! @Fraction.Collection
 			}
 
-			//deposit the token into it's corresponding collection
-			let collection <- self.ownedCollections.remove(key: vaultId) ?? panic("missing collection")
-			collection.deposit(token: <- token)
-
-			// put the collection back in storage
-			self.ownedCollections[vaultId] <-! collection
+			let collectionRef = &self.ownedCollections[vaultId] as &Fraction.Collection
+			collectionRef.deposit(token: <- token)
 		}
 
 		pub fun getIDs(): [UInt64] {
@@ -306,6 +315,12 @@ pub contract Fraction: NonFungibleToken {
 
 		pub fun withdrawCollection(vaultId: UInt64): @Collection {
 			let collection <- self.ownedCollections.remove(key: vaultId) ?? panic("missing collection")
+			Fraction.hooks[vaultId]?.beforeTransfer(
+				from: self.owner?.address, 
+				to: nil, 
+				amount: UInt256(collection.getIDs().length), 
+				vaultId: vaultId
+			)
 			emit WithdrawCollection(id: vaultId, from: self.owner?.address)
 			return <- collection
 		}
@@ -313,6 +328,50 @@ pub contract Fraction: NonFungibleToken {
 		destroy() {
 			destroy self.ownedCollections
 		}
+	}
+
+	pub resource BurnerCollection {
+		pub let collections: @[Fraction.Collection]
+
+		init() {
+			self.collections <- []
+		}
+
+		//"retire" a collection by sending it to the BurnerCollection
+		pub fun retire(_ collection: @Fraction.Collection) {
+			self.collections.append(<- collection)
+		}
+
+		//A function to burn a number of fractions and free up storage space
+		pub fun burnFractions(_ amount: Int) {
+			pre {
+				self.collections.length > 0 : "burnFractions:no fractions to burn"
+			}
+
+			let ids = self.collections[0].getIDs()
+
+			var i = 0
+			for id in ids {
+				let fraction <-  self.collections[0].withdraw(withdrawID: id)
+				destroy fraction
+				i = i + 1
+				if i == amount {
+					break
+				}
+			}
+
+			if self.collections[0].getIDs().length == 0 {
+				destroy <- self.collections.removeFirst()
+			}
+		}
+
+		destroy() {
+			destroy self.collections
+		}
+	}
+
+	access(account) fun createBurnerCollection(): @BurnerCollection {
+		return <- create BurnerCollection()
 	}
 
     // public function that anyone can call to create a new empty collection
@@ -355,6 +414,8 @@ pub contract Fraction: NonFungibleToken {
 
 		emit MintFractions(ids: ids, metadata: metadata)
 
+		//Add a call to transfer delegate
+
 		if self.fractionSupply[vaultId] == nil {
 			self.fractionSupply[vaultId] = amount
 		} 
@@ -375,11 +436,13 @@ pub contract Fraction: NonFungibleToken {
 		self.CollectionPrivatePath = /private/fractionalCollection
 		self.CollectionStoragePath = /storage/fractionalCollection
 		self.AdministratorStoragePath = /storage/fractionAdmin
+		self.BurnerPath = /public/fractionBurner
 
 		self.totalSupply = 0
 		self.baseURI = ""
 		self.fractionSupply = {}
 		self.vaultToFractionData = {}
+		self.hooks = {}
 
 		self.account.save<@Fraction.BulkCollection>(<- self.createBulkCollection(), to: Fraction.CollectionStoragePath)
 		self.account.link<&{Fraction.BulkCollectionPublic}>(Fraction.CollectionPublicPath, target: Fraction.CollectionStoragePath)

@@ -1,6 +1,6 @@
 import NonFungibleToken from "./NonFungibleToken.cdc"
 
-pub contract WrappedCollection: NonFungibleToken {
+pub contract Basket: NonFungibleToken {
 
     
 	pub let CollectionStoragePath: StoragePath
@@ -47,6 +47,8 @@ pub contract WrappedCollection: NonFungibleToken {
             self.underlyingCollectionPath = underlyingCollectionPath
             self.nftType = nftType
             self.metadata = metadata
+
+            Basket.totalSupply = Basket.totalSupply + 1
         }
 
         pub fun getAddress(): Address {
@@ -89,12 +91,13 @@ pub contract WrappedCollection: NonFungibleToken {
             pre {
                 self.nft == nil: "Wrapped NFT is not nil"
             }
+            Basket.totalSupply = Basket.totalSupply - 1
             destroy self.nft
         }
     }
 
     // a function to wrap an NFT
-    pub fun wrap(nft: @NonFungibleToken.NFT, address: Address, collectionPath: PublicPath, nftType: Type, metadata: {String: AnyStruct} ): @WrappedCollection.NFT {
+    pub fun wrap(nft: @NonFungibleToken.NFT, address: Address, collectionPath: PublicPath, nftType: Type, metadata: {String: AnyStruct} ): @Basket.NFT {
         return <- create NFT(nft: <- nft, address: address, underlyingCollectionPath: collectionPath, nftType: nftType, metadata: metadata)
     }
     
@@ -104,7 +107,7 @@ pub contract WrappedCollection: NonFungibleToken {
         pub fun deposit(token: @NonFungibleToken.NFT)
 		pub fun getIDs(): [UInt64]
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-        pub fun borrowWNFT(id: UInt64): &{WrappedCollection.WrappedNFT}?
+        pub fun borrowWNFT(id: UInt64): &{Basket.WrappedNFT}?
 	}
 
      pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
@@ -130,7 +133,7 @@ pub contract WrappedCollection: NonFungibleToken {
         // deposit takes a NFT and adds it to the collections dictionary
 		// and adds the ID to the id array
 		pub fun deposit(token: @NonFungibleToken.NFT) {
-			let token <- token as! @WrappedCollection.NFT
+			let token <- token as! @Basket.NFT
             
             let id: UInt64 = token.id
             //need to create the WNFT
@@ -158,10 +161,10 @@ pub contract WrappedCollection: NonFungibleToken {
 
         // borrowWNFT gets a reference to a WNFT in the collection
         // so that the caller can read its metadata and call its methods, etc
-        pub fun borrowWNFT(id: UInt64): &{WrappedCollection.WrappedNFT}? {
+        pub fun borrowWNFT(id: UInt64): &{Basket.WrappedNFT}? {
             if self.ownedNFTs[id] != nil {
                 let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &WrappedCollection.NFT
+                return ref as! &Basket.NFT
             } else {
                 return nil
             }
@@ -183,8 +186,8 @@ pub contract WrappedCollection: NonFungibleToken {
 
     init() {
         self.totalSupply = 0
-        self.CollectionPublicPath =  /public/wrappedCollection
-		self.CollectionStoragePath = /storage/wrappedCollection
+        self.CollectionPublicPath =  /public/basketCollection
+		self.CollectionStoragePath = /storage/basketCollection
 
         emit CollectionIntialized()
     }
