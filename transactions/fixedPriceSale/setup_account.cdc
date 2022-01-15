@@ -1,19 +1,19 @@
-import FractionFixedPriceSale from "../../contracts/FractionFixedPriceSale.cdc"
+import FixedPriceSale from "../../contracts/FixedPriceSale.cdc"
 
 // This transaction configures an account to hold fixed price sales
 
 transaction {
     prepare(signer: AuthAccount) {
         // if the account doesn't already have a collection
-        if signer.borrow<&FractionFixedPriceSale.FixedSaleCollection>(from: FractionFixedPriceSale.CollectionStoragePath) == nil {
+        if signer.borrow<&FixedPriceSale.FixedSaleCollection>(from: FixedPriceSale.CollectionStoragePath) == nil {
              // create a new empty collection
-            let collection <- FractionFixedPriceSale.createFixedPriceSaleCollection()
+            let collection <- FixedPriceSale.createFixedPriceSaleCollection()
             
             // save it to the account
-            signer.save(<-collection, to: FractionFixedPriceSale.CollectionStoragePath)
+            signer.save(<-collection, to: FixedPriceSale.CollectionStoragePath)
 
             // create a public capability for the collection
-            signer.link<&FractionFixedPriceSale.FixedSaleCollection{FractionFixedPriceSale.FixedSaleCollectionPublic}>(FractionFixedPriceSale.CollectionPublicPath, target: FractionFixedPriceSale.CollectionStoragePath)
+            signer.link<&FixedPriceSale.FixedSaleCollection{FixedPriceSale.FixedSaleCollectionPublic}>(FixedPriceSale.CollectionPublicPath, target: FixedPriceSale.CollectionStoragePath)
         }
     }
 }

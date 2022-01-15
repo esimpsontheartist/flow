@@ -1,7 +1,7 @@
 import FlowToken from "../../contracts/FlowToken.cdc"
 import FungibleToken from "../../contracts/FungibleToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
-import FractionFixedPriceSale from "../../contracts/FractionFixedPriceSale.cdc"
+import FixedPriceSale from "../../contracts/FixedPriceSale.cdc"
 
 transaction(
     listingId: UInt64,
@@ -10,14 +10,14 @@ transaction(
 ) {
 
     //Collection to carry out the sale
-    let fixedSaleCollection: &{FractionFixedPriceSale.FixedSaleCollectionPublic}
+    let fixedSaleCollection: &{FixedPriceSale.FixedSaleCollectionPublic}
     //Payment for the listing
     let payment: @FungibleToken.Vault
     //Capability to receive the fractions from the listing
     let fractionCollection: &{Fraction.BulkCollectionPublic}
 
     prepare(signer: AuthAccount){
-        self.fixedSaleCollection = getAccount(seller).getCapability<&{FractionFixedPriceSale.FixedSaleCollectionPublic}>(FractionFixedPriceSale.CollectionPublicPath).borrow()
+        self.fixedSaleCollection = getAccount(seller).getCapability<&{FixedPriceSale.FixedSaleCollectionPublic}>(FixedPriceSale.CollectionPublicPath).borrow()
         ?? panic("could not borrow a reference for the fixed price sale")
 
         let vaultRef = signer.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault)

@@ -1,16 +1,15 @@
-import FlowToken from "../../contracts/core/FlowToken.cdc"
+import FlowToken from "../../contracts/FlowToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
-import FractionFixedPriceSale from "../../contracts/FractionFixedPriceSale.cdc"
+import FixedPriceSale from "../../contracts/FixedPriceSale.cdc"
 
 transaction(
     listingId: UInt64,
 ) {
 
-    //Collection to carry out the sale
-    let fixedSaleCollection: &FractionFixedPriceSale.FixedSaleCollection
+    let fixedSaleCollection: &FixedPriceSale.FixedSaleCollection
 
     prepare(signer: AuthAccount){
-        self.fixedSaleCollection = signer.borrow<&FractionFixedPriceSale.FixedSaleCollection>(from: FractionFixedPriceSale.CollectionStoragePath)
+        self.fixedSaleCollection = signer.borrow<&FixedPriceSale.FixedSaleCollection>(from: FixedPriceSale.CollectionStoragePath)
         ?? panic("could not borrow a reference for the fixed price sale")
     }
 

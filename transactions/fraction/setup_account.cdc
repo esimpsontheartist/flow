@@ -6,19 +6,19 @@ import Fraction from "../../contracts/Fraction.cdc"
 transaction {
     prepare(signer: AuthAccount) {
         // if the account doesn't already have a collection
-        if signer.borrow<&Fraction.Collection>(from: Fraction.CollectionStoragePath) == nil {
+        if signer.borrow<&Fraction.BulkCollection>(from: Fraction.CollectionStoragePath) == nil {
              // create a new empty collection
-            let collection <- Fraction.createEmptyCollection()
+            let collection <- Fraction.createBulkCollection()
             
             // save it to the account
             signer.save(<-collection, to: Fraction.CollectionStoragePath)
 
             // create a public capability for the collection
-            signer.link<&Fraction.Collection{NonFungibleToken.CollectionPublic, Fraction.CollectionPublic}>
+            signer.link<&{NonFungibleToken.CollectionPublic, Fraction.BulkCollectionPublic}>
             (Fraction.CollectionPublicPath, target: Fraction.CollectionStoragePath)
 
             // create a private capability for the collection
-            signer.link<&Fraction.Collection>(Fraction.CollectionPrivatePath, target: Fraction.CollectionStoragePath)
+            signer.link<&Fraction.BulkCollection>(Fraction.CollectionPrivatePath, target: Fraction.CollectionStoragePath)
         }
     }
 }

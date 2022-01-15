@@ -8,8 +8,6 @@ export const toUFix64 = (value) => value.toFixed(UFIX64_PRECISION);
 export const getStorageUsed = (address) => executeScript({ name: "account/storage_used", args: [address]})
 // Address that manages the vaults
 export const getVaultAdminAddress = async () => getAccountAddress("FractionalVaultAdmin");
-// Address where the vault resource is minted to
-export const getVaultAddress = async () => getAccountAddress("FractionalVaultOwner");
 // Mock address for testing
 export const getBobsAddress = async () => getAccountAddress("Bob");
 // Mock secondary address for testing

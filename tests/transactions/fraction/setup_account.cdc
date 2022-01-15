@@ -6,7 +6,7 @@ import Fraction from "../../contracts/Fraction.cdc"
 transaction {
     prepare(signer: AuthAccount) {
         // if the account doesn't already have a collection
-        if signer.borrow<&Fraction.Collection>(from: Fraction.CollectionStoragePath) == nil {
+        if signer.borrow<&Fraction.BulkCollection>(from: Fraction.CollectionStoragePath) == nil {
              // create a new empty collection
             let collection <- Fraction.createBulkCollection()
             

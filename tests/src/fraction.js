@@ -14,15 +14,11 @@ export const deployFraction = async () => {
 	await mintFlow(VaultAdmin, "10.0");
 
 	await deployContractByName({ to: VaultAdmin, name: "NonFungibleToken" });
-	await deployContractByName({ to: VaultAdmin, name: "TypedMetadata" });
 	await deployContractByName({ to: VaultAdmin, name: "EnumerableSet" });
-	await deployContractByName({ to: VaultAdmin, name: "PriceBook", addressMap: {EnumerableSet: VaultAdmin}});
 	
 	const addressMap = { 
 		NonFungibleToken: VaultAdmin,
-		EnumerableSet: VaultAdmin,
-		TypedMetadata: VaultAdmin,
-		PriceBook: VaultAdmin
+		EnumerableSet: VaultAdmin
 	}
 
 	return deployContractByName({ to: VaultAdmin, name: "Fraction", addressMap });
@@ -59,6 +55,33 @@ export const transferFractions = async (sender, recipient, withdrawIDs) => {
 
 	return sendTransaction({ name, args, signers, limit: 9999});
 };
+
+/**
+ * A function to set the baseURI for the fractions
+ * @param {String} uri 
+ */
+export const setBaseUri = async(sender, baseURI) => {
+	const name = "fraction/set_baseURI";
+	const args = [baseURI]
+	const signers = [sender];
+
+	return sendTransaction({ name, args, signers, limit: 9999});
+}
+
+/**
+ * A function to burn fractions (destroy them and free up storage)
+ * @param {Address} address for the burner collection (same as contract deployer)
+ * @param {Int} amount to be burnt (function stops when there's nothing else to burn
+ * or the amount has been reached, due to gas limits, it is recommended to not burn
+ * more than 100 Fractions per transaction)
+ */
+ export const burnFractions = async(sender, burnerAddress, amount) => {
+	const name = "fraction/burn_fractions";
+	const args = [burnerAddress, amount]
+	const signers = [sender];
+
+	return sendTransaction({ name, args, signers, limit: 9999});
+}
 
 // SCRIPTS
 
@@ -142,4 +165,24 @@ export const getTotalSupply = async () => {
 
 	return executeScript({ name, args });
 };
+
+/**
+ * Returns the number of Fraction collections held by the burner collection
+ * @param {*} address 
+ * @returns 
+ */
+export const getBurnerCollectionNum = async(address) => {
+	const name = "fraction/get_burnerCollectionNum"
+	const args = [address]
+
+	return executeScript({ name, args})
+}
+
+export const getBurnerAmountAt = async(address, index) => {
+	const name = "fraction/get_burnerAmountAt"
+	const args = [address, index]
+
+	return executeScript({ name, args})
+}
+
 

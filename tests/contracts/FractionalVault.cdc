@@ -17,13 +17,6 @@ pub contract FractionalVault {
     /// ----------- Factory ---------------
     /// -----------------------------------
 
-    /// @notice the number of NFT vaults
-    pub var vaultCount: UInt256
-
-    /// @notice the address where the vaults get minted to (address that has it's keys revoked)
-    /// The address must contain the BurnerCollection Capability
-    priv var burnerAddress: Address
-
     pub let VaultStoragePath: StoragePath
 	pub let VaultPublicPath: PublicPath
     pub let MinterPrivatePath: PrivatePath
@@ -31,27 +24,29 @@ pub contract FractionalVault {
 
     pub event ContractInitialized()
 
-    pub var feeReceiver: Capability<&{FungibleToken.Receiver}>?
+    priv var fee: UFix64?
+
+    pub fun vaultFee(): UFix64? {
+        return self.fee
+    }
+    //Vault settings Events
+    pub event ManageFees(fee: UFix64?)
 
     pub resource Administrator {
-        access(account) fun setBurnerAddress(address: Address) {
-            FractionalVault.burnerAddress = address
+        pub fun manageFees(fee: UFix64) {
+            FractionalVault.fee = fee
+            emit ManageFees(fee: fee)
         }
-        access(account) fun setFeeReceiver(receiver: Capability<&{FungibleToken.Receiver}>) {
-            pre {
-                receiver != nil: "fees cannot go to nil capability"
-            }
-            emit UpdateFeeReceiver(old: FractionalVault.feeReceiver!.address, new: receiver.address)
-            FractionalVault.feeReceiver = receiver
+
+        pub fun overrideVaultPath(vault: &{PublicVault}, path: PublicPath){
+            vault.overrrideBidVaultPath(path: path)
         }
     }
-
-    //Vault settings Events
-    pub event UpdateFeeReceiver(old: Address, new: Address)
 
     //enum for auction state
     pub enum State: UInt8 {
         pub case inactive
+        pub case minted
         pub case live
         pub case ended
         pub case redeemed
@@ -97,28 +92,36 @@ pub contract FractionalVault {
     priv let userPrices: {UInt64: {Address: UFix64}}
 
     // Reserve Price Functions
-    access(account) fun addToPrice(_ vaultId: UInt64, _ amount: UInt256, _ price: UFix64) {
+    access(account) fun addToPrice(_ vaultId: UInt64, _ amount: UInt256, _ price: UFix64?) {
+        if price == nil {
+            return
+        }
+        let newPrice = price!
         if self.prices[vaultId] == nil {
             self.prices.insert(key: vaultId, EnumerableSet.UFix64Set())
         }
 
         let nested = self.priceToCount[vaultId] ?? {}
         //forcing optional value below leads to an error
-        if nested[price] == nil {
-            nested[price] = amount
+        if nested[newPrice] == nil {
+            nested[newPrice] = amount
         } 
         else {
-            nested[price] = nested[price]! + amount
+            nested[newPrice] = nested[newPrice]! + amount
         }
         
         self.priceToCount[vaultId] = nested
 
-        if self.priceToCount[vaultId]![price]! * 100 >= Fraction.fractionSupply[vaultId]! && !self.prices[vaultId]!.contains(price) {
-            self.prices[vaultId]!.add(price)
+        if self.priceToCount[vaultId]![newPrice]! * 100 >= Fraction.fractionSupply[vaultId]! && !self.prices[vaultId]!.contains(newPrice) {
+            self.prices[vaultId]!.add(newPrice)
         }
     }   
 
-    access(account) fun removeFromPrice(_ vaultId: UInt64, _ amount: UInt256, _ oldPrice: UFix64) {
+    access(account) fun removeFromPrice(_ vaultId: UInt64, _ amount: UInt256, _ price: UFix64?) {
+        if price == nil {
+            return
+        }
+        let oldPrice = price!
         let nested = self.priceToCount[vaultId] ?? {}
         
         if nested[oldPrice] == nil {
@@ -181,10 +184,18 @@ pub contract FractionalVault {
         ){
             //On deposit
             if from == nil && to != nil {
-                FractionalVault.addToPrice(vaultId, amount, FractionalVault.userPrices[vaultId]![to!]!)
+                if  FractionalVault.userPrices[vaultId] == nil { 
+                    return
+                }
+                let userPrice = FractionalVault.userPrices[vaultId]![to!]
+                FractionalVault.addToPrice(vaultId, amount, userPrice)
             //On withdraw    
             } else if to == nil && from != nil {
-                FractionalVault.removeFromPrice(vaultId, amount, FractionalVault.userPrices[vaultId]![from!]!)
+                if  FractionalVault.userPrices[vaultId] == nil { 
+                    return
+                }
+                let userPrice = FractionalVault.userPrices[vaultId]![from!]
+                FractionalVault.removeFromPrice(vaultId, amount, userPrice)
             }
         }
 
@@ -193,13 +204,21 @@ pub contract FractionalVault {
 			amount: UInt256, 
 			vaultId: UInt64
 		){
-            FractionalVault.removeFromPrice(vaultId, amount, FractionalVault.userPrices[vaultId]![from!]!)
+            if  FractionalVault.userPrices[vaultId] == nil { 
+                    return
+            }
+            let userPrice = FractionalVault.userPrices[vaultId]![from!]
+            FractionalVault.removeFromPrice(vaultId, amount, userPrice)
         }
     }
     
     pub resource interface PublicVault {
-        pub fun updateUserPrice(collection: &Fraction.BulkCollection, amount: UInt256, new: UFix64)
-        pub fun isLivePrice(price: UFix64): Bool
+        pub let auctionLength: UFix64
+        pub fun getAuctionEnd(): UFix64
+        pub fun getLivePrice(): UFix64 
+        pub fun getWinning(): Capability<&{NonFungibleToken.CollectionPublic}>?
+        pub fun getAuctionState(): State
+        pub fun updateUserPrice(collection: &Fraction.BulkCollection, new: UFix64)
         pub fun borrowUnderlying(): &{NonFungibleToken.CollectionPublic}
         pub fun vaultBalance(): &{FungibleToken.Balance}
         pub fun start(
@@ -213,9 +232,11 @@ pub contract FractionalVault {
             bidder: Capability<&{NonFungibleToken.CollectionPublic}>
         )
         pub fun end()
-        pub fun redeem(collection: &Fraction.BulkCollection, amount: UInt256, redeemer: Capability<&{NonFungibleToken.CollectionPublic}>)
+        pub fun redeem(collection: &Fraction.BulkCollection, redeemer: Capability<&{NonFungibleToken.CollectionPublic}>)
         pub fun cash(collection: &Fraction.BulkCollection, collector: Capability<&{FungibleToken.Receiver}>)
         access(account) fun borrowUnderlyingRef(id: UInt64): auth &NonFungibleToken.NFT
+        //Function to override the path in case a wrong one is provided
+        access(contract) fun overrrideBidVaultPath(path: PublicPath)
     }
 
     //Restrict the vault resource with an interface
@@ -226,25 +247,28 @@ pub contract FractionalVault {
         access(contract) let bidVault: @FungibleToken.Vault
         //The type of Fungible Token that the vault accepts
         pub let bidVaultType: Type
-
+        //The path to get the receiver capability for fee payments
+        priv var vaultPath: PublicPath
         pub let maxSupply: UInt256
 
         // Auction information// 
-        pub var auctionEnd: UFix64?
-        pub var auctionLength: UFix64
-        pub var livePrice: UFix64?
-        pub var winning: Capability<&{NonFungibleToken.CollectionPublic}>?
-        pub var refundCapability: Capability<&{FungibleToken.Receiver}>?
-        pub var auctionState: State?
+        priv var auctionEnd: UFix64?
+        pub let auctionLength: UFix64
+        priv var livePrice: UFix64?
+        priv var winning: Capability<&{NonFungibleToken.CollectionPublic}>?
+        priv var refundCapability: Capability<&{FungibleToken.Receiver}>?
+        priv var auctionState: State
 
         init(
             vault: @CoreVault.Vault,
             bidVault: @FungibleToken.Vault,
             bidVaultType: Type,
+            vaultPath: PublicPath,
             maxSupply: UInt256,
         ) {
             pre {
-                vault.underlying.getIDs().length > 0 : "init:vault provided holds no NFTs"
+                bidVault.isInstance(bidVaultType) : "init:vault types don't match"
+                vault.borrowPublicCollection().getIDs().length > 0 : "init:vault provided holds no NFTs"
             }
 
             post {
@@ -254,6 +278,7 @@ pub contract FractionalVault {
             self.vault <- vault
             self.bidVault <- bidVault
             self.bidVaultType = bidVaultType
+            self.vaultPath = vaultPath
             self.auctionLength = 172800.0 //2 days in seconds 
             self.auctionState = State.inactive
             self.maxSupply = maxSupply
@@ -272,7 +297,23 @@ pub contract FractionalVault {
             )
         }
 
-        pub fun updateUserPrice(collection: &Fraction.BulkCollection, amount: UInt256, new: UFix64) {
+        pub fun getAuctionEnd(): UFix64 { 
+            return self.auctionEnd ?? 0.0
+        }
+
+        pub fun getLivePrice(): UFix64 { 
+            return self.livePrice ?? 0.0
+        }
+
+        pub fun getWinning(): Capability<&{NonFungibleToken.CollectionPublic}>? { 
+            return self.winning
+        }
+
+        pub fun getAuctionState(): State {
+            return self.auctionState
+        }
+
+        pub fun updateUserPrice(collection: &Fraction.BulkCollection, new: UFix64) {
         
             let fractionsOwner = collection.owner?.address!
 
@@ -285,16 +326,16 @@ pub contract FractionalVault {
             let balance = UInt256(fractionIds.length)
 
             FractionalVault.addToPrice(self.vault.uuid, balance, new)
-            FractionalVault.removeFromPrice(self.vault.uuid, balance, FractionalVault.userPrices[self.vault.uuid]![fractionsOwner]!)
-
+            var fractionsOwnerPrice: UFix64? = nil
+            if  FractionalVault.userPrices[self.vault.uuid] != nil { 
+                   fractionsOwnerPrice = FractionalVault.userPrices[self.vault.uuid]![fractionsOwner]
+            }
+            FractionalVault.removeFromPrice(self.vault.uuid, balance, fractionsOwnerPrice)
+            
             let nested = FractionalVault.userPrices[self.vault.uuid] ?? {}
             nested[fractionsOwner] = new
             FractionalVault.userPrices[self.vault.uuid] = nested
-            emit PriceUpdate(fractionsOwner: fractionsOwner, amount: amount, price: new)
-        }
-
-        pub fun isLivePrice(price: UFix64): Bool {
-            return FractionalVault.prices[self.vault.uuid]!.contains(price);
+            emit PriceUpdate(fractionsOwner: fractionsOwner, amount: balance, price: new)
         }
 
         // function to borrow a reference to the underlying collection
@@ -327,13 +368,15 @@ pub contract FractionalVault {
         ): @Fraction.Collection
         {   
             pre {
-                Fraction.fractionSupply[self.vault.uuid]! + amount <= self.maxSupply : "mint:minting amount will exceed totalSupply"
+                Fraction.getFractionSupply(vaultId: self.vault.uuid) + amount <= self.maxSupply : "mint:minting amount will exceed totalSupply"
             }
+
             //mint the fractions
-            let fractions <- Fraction.mintFractions(
-                amount: 100, 
-                vaultId: self.vault.uuid
+            let fractions <- self.vault.mint(
+                amount: amount
             )
+
+            self.auctionState = FractionalVault.State.minted
             
             //return the fractions
             return <- fractions
@@ -346,7 +389,7 @@ pub contract FractionalVault {
             bidder: Capability<&{NonFungibleToken.CollectionPublic}>
         ) {
             pre {
-                self.auctionState == State.inactive : "start:no auction starts"
+                self.auctionState == State.minted : "start:no auction starts"
                 FractionalVault.reservePrice(self.vault.uuid).voting * 2 >= Fraction.fractionSupply[self.vault.uuid]! : "start:not enough voters"
                 bidder.check() == true : "start:collection capability must be linked"
                 refund.check() == true : "start:refund capability must be linked"
@@ -431,17 +474,19 @@ pub contract FractionalVault {
             //change auction state
             self.auctionState = State.ended
 
-            if FractionalVault.feeReceiver != nil {
-                self.sendFungibleToken(to: FractionalVault.feeReceiver!, value: (self.livePrice! * 0.025))
+            if FractionalVault.fee != nil {
+                let receiver = FractionalVault.account.getCapability<&{FungibleToken.Receiver}>(self.vaultPath)
+                assert(receiver.check() == true, message: "end:no capability to receive fees")
+                self.sendFungibleToken(to: receiver, value: (self.livePrice! * FractionalVault.fee!))
             }
 
             emit Won(buyer: self.winning!.address, price: self.livePrice!, ids: keys)
         }
 
         /// @notice  function to burn all fractions and receive the underlying
-        pub fun redeem(collection: &Fraction.BulkCollection, amount: UInt256, redeemer: Capability<&{NonFungibleToken.CollectionPublic}>) {
+        pub fun redeem(collection: &Fraction.BulkCollection, redeemer: Capability<&{NonFungibleToken.CollectionPublic}>) {
             pre {
-                self.auctionState == State.inactive : "redeem:no redeeming"
+                self.auctionState == State.minted : "redeem:no redeeming"
                 redeemer.check() == true : "redeem:redeemer's collection capability must be linked"
                 Fraction.fractionSupply[self.vault.uuid]! > 0 : "redeem:fraction supply is not greater than 0"
                 UInt256(collection.getIDsByVault(vaultId: self.vault.uuid).length) == Fraction.fractionSupply[self.vault.uuid] : "redeem:collection does not contain all fractions"
@@ -455,7 +500,7 @@ pub contract FractionalVault {
             Fraction.fractionSupply[self.vault.uuid] = Fraction.fractionSupply[self.vault.uuid]! - collectionAmount
 
             //Push the fraction collection to the array
-            let burner = getAccount(FractionalVault.burnerAddress).getCapability<&Fraction.BurnerCollection>(Fraction.BurnerPath).borrow() 
+            let burner = getAccount(FractionalVault.account.address).getCapability<&Fraction.BurnerCollection>(Fraction.BurnerPublicPath).borrow() 
             ?? panic("Could not borrow a reference to the Fractional Vault Collection")
 
             //"retire" the fractions
@@ -486,35 +531,32 @@ pub contract FractionalVault {
             let collectorRef = collector.borrow() 
             ?? panic("cash:could not borrow a reference from the collector's fungible token capability")
             assert(collectorRef.isInstance(self.bidVaultType), message: "cash:collector's capability is not the requested type")
-
+            log("Collection Balance: ")
+            log(collection.borrowCollection(vaultId: self.vault.uuid)!.getIDs().length)
             let fractions <- collection.withdrawCollection(vaultId: self.vault.uuid)
-
             //calculate share of the total fraction supply for the vault (Need to check the math)
             var share = (UFix64(fractions.getIDs().length) * self.bidVault.balance) / UFix64(Fraction.fractionSupply[self.vault.uuid]!)
 
             //Remove fractions from supply 
             Fraction.fractionSupply[self.vault.uuid] = Fraction.fractionSupply[self.vault.uuid]! - UInt256(fractions.getIDs().length)
             //Push the fraction collection to the array
-            let burner = getAccount(FractionalVault.burnerAddress).getCapability<&Fraction.BurnerCollection>(Fraction.BurnerPath).borrow() 
+            let burner = getAccount(FractionalVault.account.address).getCapability<&Fraction.BurnerCollection>(Fraction.BurnerPublicPath).borrow() 
             ?? panic("Could not borrow a reference to the Fractional Vault Collection")
 
             let ids = fractions.getIDs()
             //"retire" the fractions
             burner.retire(<- fractions)
-           
             //sendFlow
             self.sendFungibleToken(to: collector, value: share)
 
             emit Cash(owner: collector.address, amount: share, ids: ids)
         }
 
-        pub fun withdrawVault(): @CoreVault.Vault {
+        //Function access guess restricted by resource interfaces
+        //Only a full reference given by the owner can call this function
+        pub fun withdrawVault() {
             pre {
                 self.auctionState == FractionalVault.State.inactive : "withdrawVault:cannot withdraw from an active state"
-            }
-            //This should never get triggered
-            post {
-                result.underlying.getIDs().length != 0 : "withdrawVault:returned a vault with an empty underlying collection"
             }
 
             let emptyCollection <- Fraction.createEmptyCollection()
@@ -530,7 +572,15 @@ pub contract FractionalVault {
             Fraction.hooks[self.vault.uuid] = nil
 
             self.vault <-> vault
-            return <- vault
+            let vaultOwner = vault.curator.address
+            let coreVaultCollectionCap = getAccount(vault.curator.address).getCapability<&{CoreVault.CollectionPublic}>(CoreVault.CollectionPublicPath)
+            let coreVaultCollection = coreVaultCollectionCap.borrow() 
+            ?? panic("withdrawVault:could not borrow a reference to the Core Vault Collection Capability")
+            coreVaultCollection.depositVault(vault: <- vault)
+        }
+
+        access(contract) fun overrrideBidVaultPath(path: PublicPath) {
+            self.vaultPath = path
         }
 
         destroy() {
@@ -569,7 +619,7 @@ pub contract FractionalVault {
         pub fun depositVault(vault: @FractionalVault.Vault) {
             let vault <- vault 
 
-            let id: UInt64 = vault.uuid
+            let id: UInt64 = vault.vault.uuid
 
             emit VaultDeposited(id: id, to: self.owner?.address)
 
@@ -627,6 +677,7 @@ pub contract FractionalVault {
         vault: @CoreVault.Vault,
         bidVault: @FungibleToken.Vault,
         bidVaultType: Type,
+        vaultPath: PublicPath,
         maxSupply: UInt256,
     ) {
 
@@ -635,6 +686,7 @@ pub contract FractionalVault {
             vault: <- vault,
             bidVault: <- bidVault, 
             bidVaultType: bidVaultType,
+            vaultPath: vaultPath,
             maxSupply: maxSupply
         )
         
@@ -642,20 +694,16 @@ pub contract FractionalVault {
         ?? panic("Could not borrow a reference to the Fractional Vault Collection")
 
         vaultCollection.depositVault(vault: <- fractionalVault)
-
-        self.vaultCount =  self.vaultCount + 1
     }
 
-    init(burnerAddress: Address) {
+    init() {
 
         self.VaultPublicPath = /public/fractionalVault
         self.VaultStoragePath = /storage/fractionalVault
         self.MinterPrivatePath = /private/fractionalVault
         self.AdministratorStoragePath = /storage/fractionalVaultAdmin
 
-        self.burnerAddress = burnerAddress
-        self.vaultCount = 0
-        self.feeReceiver = nil
+        self.fee = nil
         self.prices = {}
         self.priceToCount = {}
         self.userPrices = {}

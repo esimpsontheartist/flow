@@ -13,7 +13,7 @@ pub contract FixedPriceSale {
     //Number of listings that have occured (also used to generate a Sale ID)
     pub var numOfListings: UInt64
     //Mapping of IDs to listings
-    pub var listings: {UInt64: ListingData}
+    priv let listings: {UInt64: ListingData}
 
     pub event Purchase(listingData: ListingData)
 
@@ -220,6 +220,10 @@ pub contract FixedPriceSale {
 
     pub fun createFixedPriceSaleCollection(): @FixedSaleCollection {
         return <- create FixedSaleCollection()
+    }
+
+    pub fun getListing(id: UInt64): ListingData? {
+        return self.listings[id]
     }
 
     pub init() {

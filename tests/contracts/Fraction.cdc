@@ -7,15 +7,19 @@ pub contract Fraction: NonFungibleToken {
 	pub let CollectionPublicPath: PublicPath
 	pub let CollectionPrivatePath: PrivatePath
 	pub let AdministratorStoragePath: StoragePath
-	pub let BurnerPath: PublicPath
+	pub let BurnerStoragePath: StoragePath
+	pub let BurnerPublicPath: PublicPath
+
 
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
 	// The API endpoint for Fraction metadata
 	access(account) var baseURI: String
-	//A function to set the URI endpoint
-	access(account) fun setUriBase(_ uri: String) {
-		self.baseURI = uri
+
+	pub resource Administrator {
+		pub fun setUriBase(_ uri: String) {
+			Fraction.baseURI = uri
+		}
 	}
 	//Total fraction supply for a given vault id
 	access(account) let fractionSupply: {UInt64: UInt256}
@@ -48,6 +52,12 @@ pub contract Fraction: NonFungibleToken {
     // It indicates the owner of the collection that it was deposited to.
     //
     pub event DepositCollection(id: UInt64, to: Address?)
+
+	//An event that indicates that indicates that a set of fractions have been "retired"
+	pub event FractionsRetired(ids: [UInt64])
+
+	//An event that indicates that a certain number of fractions have been destroyed 
+	pub event FractionsDestroyed(amount: Int)
 	
 	pub struct FractionData {
 		pub let vaultId: UInt64
@@ -233,13 +243,13 @@ pub contract Fraction: NonFungibleToken {
 		// a dictionary of Collections
 		pub var ownedCollections: @{UInt64: Collection}
 
+		//from which collection should a fraction be withdrawn from
 		priv let fractionToVault: {UInt64: UInt64}
 		priv let vaultToFractions: {UInt64: EnumerableSet.UInt64Set}
-
 		init() {
+			self.ownedCollections <- {}
 			self.fractionToVault = {}
 			self.vaultToFractions = {}
-			self.ownedCollections <- {}
 		}
 
 		pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
@@ -266,7 +276,6 @@ pub contract Fraction: NonFungibleToken {
 				self.vaultToFractions.insert(key: vaultId, EnumerableSet.UInt64Set())
 			} 
 			self.vaultToFractions[vaultId]?.add(token.id)
-			
 			if self.ownedCollections[vaultId] == nil {
 				self.ownedCollections[vaultId] <-! Fraction.createEmptyCollection() as! @Fraction.Collection
 			}
@@ -276,7 +285,11 @@ pub contract Fraction: NonFungibleToken {
 		}
 
 		pub fun getIDs(): [UInt64] {
-			return self.fractionToVault.keys
+			let ids: [UInt64] = []
+			for collectionId in self.ownedCollections.keys {
+				ids.appendAll(self.ownedCollections[collectionId]?.getIDs()!)
+			}
+			return ids
 		}
 
 		pub fun getVaultIds(): [UInt64] {
@@ -284,7 +297,8 @@ pub contract Fraction: NonFungibleToken {
 		}
 
 		pub fun getIDsByVault(vaultId: UInt64): [UInt64] {
-			return self.vaultToFractions[vaultId]!.values()
+			let vault = self.vaultToFractions[vaultId] ?? panic("no vault for given id")
+			return vault.values()
 		}
 
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
@@ -331,7 +345,7 @@ pub contract Fraction: NonFungibleToken {
 	}
 
 	pub resource BurnerCollection {
-		pub let collections: @[Fraction.Collection]
+		priv let collections: @[Fraction.Collection]
 
 		init() {
 			self.collections <- []
@@ -339,7 +353,17 @@ pub contract Fraction: NonFungibleToken {
 
 		//"retire" a collection by sending it to the BurnerCollection
 		pub fun retire(_ collection: @Fraction.Collection) {
+			let ids = collection.getIDs()
 			self.collections.append(<- collection)
+			emit FractionsRetired(ids: ids)
+		}
+
+		pub fun numOfCollections(): Int { 
+			return self.collections.length
+		}
+
+		pub fun amountAt(_ index: Int): Int {
+			return self.collections[index].getIDs().length
 		}
 
 		//A function to burn a number of fractions and free up storage space
@@ -347,31 +371,43 @@ pub contract Fraction: NonFungibleToken {
 			pre {
 				self.collections.length > 0 : "burnFractions:no fractions to burn"
 			}
-
-			let ids = self.collections[0].getIDs()
-
+			
+			//keep track of the number o fractions that have been burned
 			var i = 0
-			for id in ids {
-				let fraction <-  self.collections[0].withdraw(withdrawID: id)
-				destroy fraction
-				i = i + 1
+			while true {
+				let ids = self.collections[0].getIDs()
+				for id in ids {
+					let fraction <-  self.collections[0].withdraw(withdrawID: id)
+					destroy fraction
+					i = i + 1
+					if i == amount {
+						break
+					}
+				}
+
+				//break if we have reached the amount that we wanted to burn
 				if i == amount {
 					break
 				}
-			}
 
-			if self.collections[0].getIDs().length == 0 {
-				destroy <- self.collections.removeFirst()
+				//destroy a collection that has just been emptied
+				if self.collections[0].getIDs().length == 0 {
+					destroy <- self.collections.removeFirst()
+				}
+
+				//break if there are no more collections to burn from
+				if self.collections.length == 0 {
+					break
+				}
+				
 			}
+			
+			emit FractionsDestroyed(amount: i)
 		}
 
 		destroy() {
 			destroy self.collections
 		}
-	}
-
-	access(account) fun createBurnerCollection(): @BurnerCollection {
-		return <- create BurnerCollection()
 	}
 
     // public function that anyone can call to create a new empty collection
@@ -428,7 +464,7 @@ pub contract Fraction: NonFungibleToken {
 
 	//Get the total fraction suppkly for a given vaultId
 	pub fun getFractionSupply(vaultId: UInt64): UInt256 {
-		return self.fractionSupply[vaultId]!
+		return self.fractionSupply[vaultId] ?? 0
 	}
 
     init() {
@@ -436,7 +472,8 @@ pub contract Fraction: NonFungibleToken {
 		self.CollectionPrivatePath = /private/fractionalCollection
 		self.CollectionStoragePath = /storage/fractionalCollection
 		self.AdministratorStoragePath = /storage/fractionAdmin
-		self.BurnerPath = /public/fractionBurner
+		self.BurnerStoragePath = /storage/fractionBurner
+		self.BurnerPublicPath = /public/fractionBurner
 
 		self.totalSupply = 0
 		self.baseURI = ""
@@ -444,9 +481,12 @@ pub contract Fraction: NonFungibleToken {
 		self.vaultToFractionData = {}
 		self.hooks = {}
 
-		self.account.save<@Fraction.BulkCollection>(<- self.createBulkCollection(), to: Fraction.CollectionStoragePath)
-		self.account.link<&{Fraction.BulkCollectionPublic}>(Fraction.CollectionPublicPath, target: Fraction.CollectionStoragePath)
-		self.account.link<&Fraction.BulkCollection>(Fraction.CollectionPrivatePath, target: Fraction.CollectionStoragePath)
+        self.account.save<@Fraction.Administrator>( <- create Administrator(), to: self.AdministratorStoragePath)
+		self.account.save<@Fraction.BurnerCollection>(<- create BurnerCollection(), to: self.BurnerStoragePath)
+		self.account.link<&Fraction.BurnerCollection>(self.BurnerPublicPath, target: self.BurnerStoragePath)
+		self.account.save<@Fraction.BulkCollection>(<- self.createBulkCollection(), to: self.CollectionStoragePath)
+		self.account.link<&{Fraction.BulkCollectionPublic}>(self.CollectionPublicPath, target: self.CollectionStoragePath)
+		self.account.link<&Fraction.BulkCollection>(self.CollectionPrivatePath, target: self.CollectionStoragePath)
 
         emit ContractInitialized()	
     }

@@ -1,6 +1,6 @@
 import { deployContractByName, executeScript, mintFlow, sendTransaction, getContractAddress } from "flow-js-testing";
-import { getVaultAdminAddress, getVaultAddress } from "./common";
-import { deployFraction } from "./fraction";
+import { getVaultAdminAddress} from "./common";
+import { deployCoreVault } from "./coreVault";
 
 
 
@@ -15,22 +15,27 @@ import { deployFraction } from "./fraction";
 export const deployFractionalVault = async () => {
 	const VaultAdmin = await getVaultAdminAddress();
 	await mintFlow(VaultAdmin, "10.0");
-    const VaultAddress = await getVaultAddress();
 
 
-	await deployFraction()
-	await deployContractByName({ to: VaultAdmin, name: "WrappedCollection", addressMap: {NonFungibleToken: VaultAdmin} });
+	await deployCoreVault()
+	await deployContractByName({ to: VaultAdmin, name: "Modules", addressMap: {
+		NonFungibleToken: VaultAdmin,
+		Fraction: VaultAdmin
+	}})
+	await deployContractByName({ to: VaultAdmin, name: "Utils"});
 	await deployContractByName({ to: VaultAdmin, name: "Clock"})
 
 	const addressMap = { 
 		NonFungibleToken: VaultAdmin,
-		PriceBook: VaultAdmin,
+		EnumerableSet: VaultAdmin,
+		CoreVault: VaultAdmin,
+		Modules: VaultAdmin,
 		Fraction: VaultAdmin,
-		WrappedCollection: VaultAdmin,
+		Utils: VaultAdmin,
 		Clock: VaultAdmin
 	}
 
-	return deployContractByName({ to: VaultAdmin, name: "FractionalVault", addressMap: addressMap, args: [VaultAddress] });
+	return deployContractByName({ to: VaultAdmin, name: "FractionalVault", addressMap: addressMap});
 };
 
 // STATE MUTATION (TRANSACTIONS)
@@ -42,29 +47,27 @@ export const deployFractionalVault = async () => {
  * @returns {Promise<*>}
  * */
 export const setupVaultOnAccount = async (account) => {
-	const name = "vault/setup_account";
+	const name = "fractionalVault/setup_account";
 	const signers = [account];
 
 	return sendTransaction({ name, signers });
 };
 
 /*
- * Mints a fractional vault for a given set of NFTs (currently only working with ExampleNFT)
+ * Mints a fractional vault for a given CoreVault
  * @param {UInt64} nftId - the id for an NFT (currently only supports Example NFT)
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
 export const mintVault = async (
-	account, 
-	nftIds, 
-	curator, 
+	account,
+	vaultId,
 	maxSupply
 ) => {
 
-	const name = "vault/mint_vault";
+	const name = "fractionalVault/mint_vault";
 	const args = [
-		nftIds, 
-		curator, 
+		vaultId, 
 		maxSupply
 	];
 	const signers = [account];
@@ -78,10 +81,10 @@ export const mintVault = async (
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const mintVaultFractions = async (signer, vaultId) => {
+export const mintVaultFractions = async (signer, recipient, vaultId, amount) => {
 
-	const name = "vault/mint_vaultFractions";
-	const args = [vaultId];
+	const name = "fractionalVault/mint_vaultFractions";
+	const args = [recipient, vaultId, amount];
 	const signers = [signer];
 
 	return sendTransaction({ name, args, signers, limit: 9999 });
@@ -92,16 +95,17 @@ export const mintVaultFractions = async (signer, vaultId) => {
 /*
  * Calls the start() function to kickoff an auction
  * @param {Address} signer - the address to signt the transaction
+ * @param {Address} address - the address to get the vault from
  * @param {UInt256} vaultId - the id for a vault 
  * @param {UFix64} amount - amount of FLOW to bid for the underlying
  * ^ (will revert if amount < reservePrice)
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const start = async (signer, vaultId, amount) => {
+export const start = async (signer, address, vaultId, amount) => {
 
-	const name = "vault/start";
-	const args = [vaultId, amount]
+	const name = "fractionalVault/start";
+	const args = [address, vaultId, amount]
 	const signers = [signer]
 
 	return sendTransaction({ name, args, signers })
@@ -115,10 +119,10 @@ export const start = async (signer, vaultId, amount) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const end = async (signer, vaultId) => {
+export const end = async (signer, address, vaultId) => {
 
-	const name = "vault/end";
-	const args = [vaultId]
+	const name = "fractionalVault/end";
+	const args = [address, vaultId]
 	const signers = [signer]
 
 	return sendTransaction({ name, args, signers })
@@ -132,10 +136,10 @@ export const end = async (signer, vaultId) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const bid = async (signer, vaultId, amount) => {
+export const bid = async (signer, address, vaultId, amount) => {
 
-	const name = "vault/bid";
-	const args = [vaultId, amount]
+	const name = "fractionalVault/bid";
+	const args = [address, vaultId, amount]
 	const signers = [signer]
 
 	return sendTransaction({ name, args, signers })
@@ -149,10 +153,10 @@ export const bid = async (signer, vaultId, amount) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const cash = async (signer, vaultId) => {
+export const cash = async (signer, address, vaultId) => {
 
-	const name = "vault/cash";
-	const args = [vaultId]
+	const name = "fractionalVault/cash";
+	const args = [address, vaultId]
 	const signers = [signer]
 
 	return sendTransaction({ name, args, signers, limit: 9999 })
@@ -167,10 +171,10 @@ export const cash = async (signer, vaultId) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const redeem = async (signer, vaultId, amount) => {
+export const redeem = async (signer, address, vaultId) => {
 
-	const name = "vault/redeem";
-	const args = [vaultId, amount]
+	const name = "fractionalVault/redeem";
+	const args = [address, vaultId]
 	const signers = [signer]
 
 	return sendTransaction({ name, args, signers, limit: 9999 })
@@ -185,10 +189,49 @@ export const redeem = async (signer, vaultId, amount) => {
  * @throws Will throw an error if transaction is reverted.
  * @returns {Promise<*>}
  * */
-export const updatePrice = async (signer, vaultId, startId, amount, newPrice) => {
+export const updateUserPrice = async (signer, address, vaultId, newPrice) => {
 
-	const name = "vault/update_price";
-	const args = [vaultId, startId, amount, newPrice]
+	const name = "fractionalVault/update_price";
+	const args = [address, vaultId, newPrice]
+	const signers = [signer]
+
+	return sendTransaction({ name, args, signers, limit: 9999 })
+}
+
+/**
+ * A function that allows the contract owner to set a fee 
+ * that is taken out of the winning bid of a FractionalVault
+ * @param {Address} signer 
+ * @param {Bool} hasFee 
+ * @returns 
+ */
+export const manageVaultFee = async(signer, fee) => {
+	const name = "fractionalVault/manageVaultFee";
+	const args = [fee]
+	const signers = [signer]
+
+	return sendTransaction({ name, args, signers, limit: 9999 })
+}
+
+export const overrideBidVaultPath = async(signer, address, vaultId) => {
+	const name = "fractionalVault/overrideBidVaultPath";
+	const args = [address, vaultId]
+	const signers = [signer]
+
+	return sendTransaction({ name, args, signers, limit: 9999 })
+}
+
+export const badOverrideBidVaultPath = async(signer, address, vaultId) => {
+	const name = "fractionalVault/badOverrideBidVaultPath";
+	const args = [address, vaultId]
+	const signers = [signer]
+
+	return sendTransaction({ name, args, signers, limit: 9999 })
+}
+
+export const withdrawVault = async(signer, vaultId) =>  {
+	const name = "fractionalVault/withdrawVault";
+	const args = [vaultId]
 	const signers = [signer]
 
 	return sendTransaction({ name, args, signers, limit: 9999 })
@@ -200,24 +243,23 @@ export const updatePrice = async (signer, vaultId, startId, amount, newPrice) =>
  export const tickClock = async(time) => {
 	const name = "clock/tick";
 	const args = [time]
-	const VaultAddress = await getVaultAddress()
-	const signers = [VaultAddress]
+	const VaultAdmin = await getVaultAdminAddress()
+	const signers = [VaultAdmin]
 
 	return sendTransaction({ name, args, signers})
  }
 
+
+
 // SCRIPTS
 
-/*
- * Returns the number of vaults that have been created
- * Same as "totalSupply" of vaults
- * @param none
- * @throws Will throw an error if execution will be halted
- * @returns {UInt256}
- * */
-export const getVaultCount = async () => {
-	const name = "vault/get_vaultCount";
-	const args = [];
+/**
+ * A script to get the vaults owned by a FractionalVault Collection
+ * @param {Address} address 
+ */
+export const getVaultIds = async(address) => {
+	const name = "fractionalVault/get_collectionIds";
+	const args = [address]
 
 	return executeScript({ name, args });
 };
@@ -237,9 +279,9 @@ export const getVaultCount = async () => {
  *  vaultAddress: Address
  * }
  * */
-export const getVault = async (vaultId) => {
-	const name = "vault/get_vault";
-	const args = [vaultId];
+export const getVault = async (address, vaultId) => {
+	const name = "fractionalVault/get_vault";
+	const args = [address, vaultId];
 
 	return executeScript({ name, args });
 };
@@ -250,10 +292,9 @@ export const getVault = async (vaultId) => {
  * @throws Will throw an error if execution will be halted
  * @returns {UFix64}
  * */
-export const getBidVaultBalance = async (vaultId) => {
-	const name = "vault/get_bidVaultBalance";
-	const VaultAddress = await getVaultAddress();
-	const args = [VaultAddress, vaultId];
+export const getBidVaultBalance = async (address, vaultId) => {
+	const name = "fractionalVault/get_bidVaultBalance";
+	const args = [address, vaultId];
 
 	return executeScript({ name, args });
 };
@@ -265,9 +306,9 @@ export const getBidVaultBalance = async (vaultId) => {
  * @throws Will throw an error if execution will be halted
  * @returns {[UInt64]?}
  * */
-export const getUnderlyingCollectionIds = async (vaultId) => {
-	const name = "vault/get_underlyingCollectionIds";
-	const args = [vaultId];
+export const getUnderlyingCollectionIds = async (address, vaultId) => {
+	const name = "fractionalVault/get_underlyingCollectionIds";
+	const args = [address, vaultId];
 
 	return executeScript({ name, args });
 };
@@ -282,9 +323,9 @@ export const getUnderlyingCollectionIds = async (vaultId) => {
  * 	id: UInt64
  * }
  * */
-export const getUnderlyingNFT = async (vaultId, itemUUID) => {
-	const name = "vault/get_underlyingNFT";
-	const args = [vaultId, itemUUID];
+export const getUnderlyingNFT = async (address, vaultId, itemUUID) => {
+	const name = "fractionalVault/get_underlyingNFT";
+	const args = [address, vaultId, itemUUID];
 
 	return executeScript({ name, args });
 };
@@ -300,7 +341,7 @@ export const getUnderlyingNFT = async (vaultId, itemUUID) => {
  * }
  * */
 export const getReserveInfo = async (vaultId) => {
-	const name = "priceBook/get_reserveInfo";
+	const name = "fractionalVault/get_reserveInfo";
 	const args = [vaultId];
 
 	return executeScript({ name, args });

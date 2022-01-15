@@ -3,11 +3,11 @@ import Fraction from "../../contracts/Fraction.cdc"
 
 pub struct AccountItem {
   pub let itemID: UInt64
-  pub let vaultId: UInt256
+  pub let vaultId: UInt64
   pub let resourceID: UInt64
   pub let owner: Address
 
-  init(itemID: UInt64, vaultId: UInt256, resourceID: UInt64, owner: Address) {
+  init(itemID: UInt64, vaultId: UInt64, resourceID: UInt64, owner: Address) {
     self.itemID = itemID
     self.vaultId = vaultId
     self.resourceID = resourceID

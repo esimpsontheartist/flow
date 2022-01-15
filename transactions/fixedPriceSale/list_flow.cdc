@@ -1,26 +1,27 @@
-import FlowToken from "../../contracts/core/FlowToken.cdc"
-import FungibleToken from "../../contracts/core/FungibleToken.cdc"
-import Fraction from "../../contracts/Fraction.cdc"
-import FractionFixedPriceSale from "../../contracts/FractionFixedPriceSale.cdc"
+import FlowToken from "../../contracts/FlowToken.cdc"
+import FungibleToken from "../../contracts/FungibleToken.cdc"
+import Modules from "../../contracts/Modules.cdc"
+import FractionalVault from "../../contracts/FractionalVault.cdc"
+import FixedPriceSale from "../../contracts/FixedPriceSale.cdc"
 
 transaction(
-    vaultId: UInt256,
+    vaultId: UInt64,
     amount: UInt256,
     salePrice: UFix64
     
 ) {
     //Collection to carry out the sale
-    let fixedSaleCollection: &FractionFixedPriceSale.FixedSaleCollection
+    let fixedSaleCollection: &FixedPriceSale.FixedSaleCollection
     //A capability to receive Flow for a sale
     let receiver: Capability<&{FungibleToken.Receiver}>
     //A capability to the curator's fractions
-    let curator: Capability<&Fraction.Collection>
+    let curator: Capability<&{Modules.CappedMinterCollection}>
     //
     prepare(signer: AuthAccount){
-        self.fixedSaleCollection = signer.borrow<&FractionFixedPriceSale.FixedSaleCollection>(from: FractionFixedPriceSale.CollectionStoragePath)
+        self.fixedSaleCollection = signer.borrow<&FixedPriceSale.FixedSaleCollection>(from: FixedPriceSale.CollectionStoragePath)
         ?? panic("could not borrow a reference for the fixed price sale")
 
-        self.curator = signer.getCapability<&Fraction.Collection>(Fraction.CollectionPrivatePath)
+        self.curator = signer.getCapability<&{Modules.CappedMinterCollection}>(FractionalVault.MinterPrivatePath)
 
         self.receiver = signer.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
     }
@@ -29,7 +30,7 @@ transaction(
 
         self.fixedSaleCollection.list(
             vaultId: vaultId,
-            curator: self.curator,
+            minter: self.curator,
             amount: amount,
             salePrice: salePrice,
             salePaymentType:  Type<@FlowToken.Vault>(),

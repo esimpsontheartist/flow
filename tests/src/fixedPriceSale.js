@@ -1,7 +1,5 @@
 import { deployContractByName, executeScript, mintFlow, sendTransaction } from "flow-js-testing";
 import { getVaultAdminAddress } from "./common";
-import { deployFraction } from "./fraction";
-import { deployFractionalVault } from "./fractionalVault";
 
 // CONTRACT DEPLOYMENT
 
@@ -13,16 +11,12 @@ import { deployFractionalVault } from "./fractionalVault";
 export const deployFixedPriceSale = async () => {
 	const VaultAdmin = await getVaultAdminAddress();
 	await mintFlow(VaultAdmin, "10.0");
-
-	await deployFractionalVault()
-
 	const addressMap = { 
-		NonFungibleToken: VaultAdmin,
-		Fraction: VaultAdmin,
-		FractionalVault: VaultAdmin
+		Modules: VaultAdmin,
+		Fraction: VaultAdmin
 	}
 
-	return deployContractByName({ to: VaultAdmin, name: "FractionFixedPriceSale", addressMap });
+	return deployContractByName({ to: VaultAdmin, name: "FixedPriceSale", addressMap });
 };
 
 // STATE MUTATION (TRANSACTIONS)
@@ -55,9 +49,9 @@ export const listForFlow = async (sender, vaultId, amount, salePrice) => {
 /*
  * Purchases a listing of fractions and pays flow
  * */
-export const purchaseFlowListing = async (signer, listingId, seller, amount) => {
+export const purchaseFlowListing = async (signer, listingId, seller, payment) => {
 	const name = "fixedPriceSale/purchase_listing_flow";
-	const args = [listingId, seller, amount];
+	const args = [listingId, seller, payment];
 	const signers = [signer];
 
 	return sendTransaction({ name, args, signers, limit: 9999});
@@ -66,7 +60,7 @@ export const purchaseFlowListing = async (signer, listingId, seller, amount) => 
 /*
  * Cancels a listing if the signer is the curator for the given vaultId
  * */
-export const cancelListing = async (signer, listingId,) => {
+export const cancelListing = async (signer, listingId) => {
 	const name = "fixedPriceSale/cancel_listing";
 	const args = [listingId];
 	const signers = [signer];
