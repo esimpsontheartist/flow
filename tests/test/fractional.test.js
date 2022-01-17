@@ -724,7 +724,7 @@ describe("FractionalVault", () => {
         expect(burnerAmountAt).toBe(100)
         
         //The burner has 1000 fractions, so we burn them
-        for(var i = 0; i < 9; i++) {
+        for(var i = 0; i < 10; i++) {
             await shallPass(burnFractions(Bob, VaultAdmin, 100))
         }
         burnerAmount = await getBurnerCollectionNum(VaultAdmin)

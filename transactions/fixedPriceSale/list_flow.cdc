@@ -1,5 +1,5 @@
-import FlowToken from "../../contracts/FlowToken.cdc"
-import FungibleToken from "../../contracts/FungibleToken.cdc"
+import FlowToken from "../../contracts/core/FlowToken.cdc"
+import FungibleToken from "../../contracts/core/FungibleToken.cdc"
 import Modules from "../../contracts/Modules.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 import FixedPriceSale from "../../contracts/FixedPriceSale.cdc"

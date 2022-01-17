@@ -1,4 +1,4 @@
-import FlowToken from "../../contracts/FlowToken.cdc"
+import FlowToken from "../../contracts/core/FlowToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
 import FixedPriceSale from "../../contracts/FixedPriceSale.cdc"
 

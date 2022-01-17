@@ -381,24 +381,30 @@ pub contract Fraction: NonFungibleToken {
 					destroy fraction
 					i = i + 1
 					if i == amount {
+						log("reached amount")
 						break
 					}
 				}
-
-				//break if we have reached the amount that we wanted to burn
-				if i == amount {
-					break
-				}
-
+				log("control passed to the while loop")
 				//destroy a collection that has just been emptied
 				if self.collections[0].getIDs().length == 0 {
+					log("destroying a collection")
 					destroy <- self.collections.removeFirst()
 				}
 
 				//break if there are no more collections to burn from
 				if self.collections.length == 0 {
+					log("breaking since collections is empty")
 					break
 				}
+
+				//break if we have reached the amount that we wanted to burn
+				if i == amount {
+					log("breaking after reaching amount")
+					break
+				}
+
+				
 				
 			}
 			

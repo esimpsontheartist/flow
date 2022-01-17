@@ -1,5 +1,7 @@
 import Fraction from "../../contracts/Fraction.cdc"
 
+// The correct address for this transaction is that of the account
+// that has the FractionalVault contract deployed
 transaction(address: Address, amount: Int) {
 
     let burner: &Fraction.BurnerCollection

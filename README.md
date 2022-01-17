@@ -9,16 +9,19 @@
 
 | Contract               | Testnet              |
 |------------------------|----------------------|
-| EnumerableSet          | `...`                |
-| WrappedCollection      | `...`                |
-| PriceBook              | `...`                |
-| Fraction               | `...`                |
-| FractionalVault        | `...`                |
-| FractionFixedPriceSale | `...`                |
-| VaultMetadata          | `...`                |
+| EnumerableSet          | `0x64e254541a0d8623` |
+| Basket                 | `0x64e254541a0d8623` |
+| Utils                  | `0x64e254541a0d8623` |
+| Fraction               | `0x64e254541a0d8623` |
+| CoreVault              | `0x64e254541a0d8623` |
+| Modules                | `0x64e254541a0d8623` |
+| FractionalVault        | `0x64e254541a0d8623` |
+| FixedPriceSale         | `0x64e254541a0d8623` |
+| VaultMetadata          | `0x799c03fe4f8cf26b` |
 
 
-Additionally, an `ExampleNFT` contract was deployed to the address above for testing purposes (emulator and testnet only).
+An `ExampleNFT` contract was deployed to `0x64e254541a0d8623` for testing purposes (emulator and testnet only). Additionally, the contracts in the `third-party` folder have been deployed under `0x799c03fe4f8cf26b` for testnet
+purposes
 
 ## Smart contracts
 

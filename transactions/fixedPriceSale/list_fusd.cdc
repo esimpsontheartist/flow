@@ -1,5 +1,5 @@
 import FUSD from "../../contracts/core/FUSD.cdc"
-import FungibleToken from "../../contracts/FungibleToken.cdc"
+import FungibleToken from "../../contracts/core/FungibleToken.cdc"
 import Modules from "../../contracts/Modules.cdc"
 import FractionalVault from "../../contracts/FractionalVault.cdc"
 import FixedPriceSale from "../../contracts/FixedPriceSale.cdc"
@@ -12,7 +12,7 @@ transaction(
 ) {
     //Collection to carry out the sale
     let fixedSaleCollection: &FixedPriceSale.FixedSaleCollection
-    //A capability to receive FUSD for a sale
+    //A capability to receive Flow for a sale
     let receiver: Capability<&{FungibleToken.Receiver}>
     //A capability to the curator's fractions
     let curator: Capability<&{Modules.CappedMinterCollection}>

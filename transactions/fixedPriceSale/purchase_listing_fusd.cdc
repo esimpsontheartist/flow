@@ -1,5 +1,5 @@
-import FUSD from "../../contracts/FUSD.cdc"
-import FungibleToken from "../../contracts/FungibleToken.cdc"
+import FUSD from "../../contracts/core/FUSD.cdc"
+import FungibleToken from "../../contracts/core/FungibleToken.cdc"
 import Fraction from "../../contracts/Fraction.cdc"
 import FixedPriceSale from "../../contracts/FixedPriceSale.cdc"
 
