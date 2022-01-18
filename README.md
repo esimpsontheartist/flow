@@ -23,6 +23,10 @@
 An `ExampleNFT` contract was deployed to `0x64e254541a0d8623` for testing purposes (emulator and testnet only). Additionally, the contracts in the `third-party` folder have been deployed under `0x799c03fe4f8cf26b` for testnet
 purposes
 
+## Testing
+
+To run the test suite, change directories to `tests/` and run `npm install` and `npm run tests`.
+
 ## Smart contracts
 
 `EnumerableSet`: An implementation of Openzeppelin's [EnumberableSet](https://docs.openzeppelin.com/contracts/4.x/api/utils#EnumerableSet) in Cadence.
