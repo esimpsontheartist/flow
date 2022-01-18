@@ -27,24 +27,32 @@ purposes
 
 `EnumerableSet`: An implementation of Openzeppelin's [EnumberableSet](https://docs.openzeppelin.com/contracts/4.x/api/utils#EnumerableSet) in Cadence.
 
-`WrappedCollection`: A custom NFT collection that wraps NFTs in order to preserve some data about them.
+`Basket`: A custom NFT collection that wraps NFTs in order to preserve some data about them, which allows NFTs from different collections to exist under 1.
 
 `PriceBook`: A contract that handles all the logic behind calculating the reserve price for a vault.
 
-`Fraction`: An NFT contract to represent vault fractions as NFTs.
+`Utils`: A contract that defines utility functions for any other contracts to use.
 
-`FractionalVault`: The main contract, defines the `Vault` resource, which holds can hold one or many NFTs for a given collection through [Run-time types](https://docs.onflow.org/cadence/language/run-time-types/#gatsby-focus-wrapper) or a collection of different NFTs through the `WrappedCollection.Collection` resource.
+`Fraction`: The contract that defines the Fraction standard by implementing the NonFungibleToken standard while having additional functionality geared towards the Fractional protocol.
 
-`FractionFixedPriceSale`: A contract that allows a vault curator to
+`CoreVault`: The contract that defines the `Corevault.Vault` resource, used for holding NFTs and which also plugs into other contracts in the deployment address.
+
+`Modules`: A contract that defines interfaces used by Fractional Protocol modules.
+
+`FractionalVault`: The first Module for the CoreVault, defines the `FractionalVault.Vault` resource, which can hold one or many NFTs for a given collection through [Run-time types](https://docs.onflow.org/cadence/language/run-time-types/#gatsby-focus-wrapper) or a collection of different NFTs through the `Basket.Collection` resource. It also defines all the functionality that makes it similar to the [OG Fractional Solidity contracts](https://github.com/fractional-company/contracts)
+
+`FixedPriceSale`: A contract that allows a Corevault owner that has used the `FractionalVault.Vault` resource to distribute fractions through a fixed price sale.
+
+`VaultMetadata`: A contract meant to be used in testnet and production for scripts to be able to gather data otherwise not available through the NonFungibleToken interface by providing a restricted interface of a specific type to a given NFT that has been deposited to a vault.
 
 ## Directory structure
 
 The directory is divided into different folders, mainly:
 
 - `contracts/`: where all the contracts live
-- `transactions/`: contains all transactions used for testnet/mainnet interaction live
+- `transactions/`: contains all transactions used for testnet/mainnet interaction.
 - `scripts/`: contains scripts to query data from the contracts
-- `tests/`: contains all the files used for testing, including a separate set of `contracts`, `transactions`, and `scripts`
+- `tests/`: contains all the files used for testing, including a set of `contracts`, `transactions`, and `scripts` that use a `Clock.cdc` contract to mock time.
 
 ## Front End interaction
 
