@@ -19,7 +19,7 @@ pub contract FractionalVault {
     //  Storage path for the FractionalVault collection
     pub let VaultStoragePath: StoragePath
     //  Pubnlic path for the FractionalVault collection
-	pub let VaultPublicPath: PublicPath
+    pub let VaultPublicPath: PublicPath
     //  Private path for the FractionalVault collection
     //  Which restricts the capability to {Modules.CappedMinterCollection}
     pub let MinterPrivatePath: PrivatePath
@@ -224,9 +224,9 @@ pub contract FractionalVault {
         // Trigger some logic when the fractions get burnt
         access(account) fun onBurn(
             from: Address?,
-			amount: UInt256, 
-			vaultId: UInt64
-		){
+            amount: UInt256, 
+            vaultId: UInt64
+        ){
             if  FractionalVault.userPrices[vaultId] == nil { 
                     return
             }
@@ -643,8 +643,8 @@ pub contract FractionalVault {
     // Public facing interface for a collection of vaults
     pub resource interface VaultCollectionPublic {
         pub fun depositVault(vault: @FractionalVault.Vault)
-		pub fun getIDs(): [UInt64]
-		pub fun borrowVault(id: UInt64): &{FractionalVault.PublicVault}?
+        pub fun getIDs(): [UInt64]
+        pub fun borrowVault(id: UInt64): &{FractionalVault.PublicVault}?
     }
 
     //Emmited when a vault gets added to the vault collection
@@ -690,7 +690,7 @@ pub contract FractionalVault {
         }
 
         // borrowVaultgets a reference to a Vault in the collection
-		// so that the caller can read its metadata and call its methods
+        // so that the caller can read its metadata and call its methods
         pub fun borrowVault(id: UInt64): &{FractionalVault.PublicVault}? {
             if self.vaults[id] != nil {
                 let ref = &self.vaults[id] as &{FractionalVault.PublicVault}
@@ -711,8 +711,8 @@ pub contract FractionalVault {
         }
 
         destroy() {
-			destroy self.vaults
-		}
+            destroy self.vaults
+        }
     }
 
     //function that sets up a collection to hold the vault
@@ -761,7 +761,7 @@ pub contract FractionalVault {
         let admin <- create Administrator()
         self.account.save(<- admin, to: self.AdministratorStoragePath)
         self.account.save<@FractionalVault.VaultCollection>(<- FractionalVault.createEmptyCollection(), to: FractionalVault.VaultStoragePath)
-		self.account.link<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath, target: FractionalVault.VaultStoragePath)
+        self.account.link<&{FractionalVault.VaultCollectionPublic}>(FractionalVault.VaultPublicPath, target: FractionalVault.VaultStoragePath)
         self.account.link<&{Modules.CappedMinterCollection}>(FractionalVault.MinterPrivatePath, target: Fraction.CollectionStoragePath)
 
         emit ContractInitialized()

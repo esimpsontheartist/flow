@@ -209,7 +209,7 @@ pub contract CoreVault {
     //Public facing resource interface for a collection that holds vaults
     pub resource interface CollectionPublic {
         pub fun depositVault(vault: @CoreVault.Vault)
-		pub fun getIDs(): [UInt64]
+        pub fun getIDs(): [UInt64]
         pub fun borrowVault(id: UInt64): &{PublicVault}?
     }
 
@@ -249,14 +249,14 @@ pub contract CoreVault {
         }
 
         // getIDs returns an array of the IDs that are in the collection
-		pub fun getIDs(): [UInt64] {
-			return self.vaults.keys
-		}
+        pub fun getIDs(): [UInt64] {
+            return self.vaults.keys
+        }
 
         // Borrow a restricted reference to one of the vaults in the collection
         pub fun borrowVault(id: UInt64): &{PublicVault}? {
             if self.vaults[id] != nil {
-				return &self.vaults[id] as &{PublicVault}
+                return &self.vaults[id] as &{PublicVault}
             } else {
                 return nil
             }
@@ -283,10 +283,10 @@ pub contract CoreVault {
 
         self.vaultCount = 0
         self.account.save<@CoreVault.VaultCollection>(<- self.createEmptyCollection(), to: CoreVault.CollectionStoragePath)
-		self.account.link<&{CoreVault.CollectionPublic}>(CoreVault.CollectionPublicPath, target: CoreVault.CollectionStoragePath)
-	
+        self.account.link<&{CoreVault.CollectionPublic}>(CoreVault.CollectionPublicPath, target: CoreVault.CollectionStoragePath)
+    
 
-        emit ContractInitialized()	
+        emit ContractInitialized()    
         
     }
  }

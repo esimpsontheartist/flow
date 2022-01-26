@@ -3,8 +3,8 @@ import NonFungibleToken from "./core/NonFungibleToken.cdc"
 pub contract Basket: NonFungibleToken {
 
     
-	pub let CollectionStoragePath: StoragePath
-	pub let CollectionPublicPath: PublicPath
+    pub let CollectionStoragePath: StoragePath
+    pub let CollectionPublicPath: PublicPath
 
     //Event emmited when contract has been deployed
     pub event CollectionIntialized()
@@ -18,7 +18,7 @@ pub contract Basket: NonFungibleToken {
 
     pub event Deposit(id: UInt64, to: Address?)
 
-	pub resource interface WrappedNFT {
+    pub resource interface WrappedNFT {
        pub fun getAddress(): Address
        pub fun getUnderlyingCollectionPath(): PublicPath
        pub fun nestedType(): Type
@@ -103,37 +103,37 @@ pub contract Basket: NonFungibleToken {
     
 
     //interface that can also borrowArt as the correct type
-	pub resource interface CollectionPublic {
+    pub resource interface CollectionPublic {
         pub fun deposit(token: @NonFungibleToken.NFT)
-		pub fun getIDs(): [UInt64]
-		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
+        pub fun getIDs(): [UInt64]
+        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
         pub fun borrowWNFT(id: UInt64): &{Basket.WrappedNFT}?
-	}
+    }
 
      pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
         
-		// dictionary of NFT conforming tokens
-		// NFT is a resource type with an `UInt64` ID field
-		pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
+        // dictionary of NFT conforming tokens
+        // NFT is a resource type with an `UInt64` ID field
+        pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
-		init () {
-			self.ownedNFTs <- {}
-		}
+        init () {
+            self.ownedNFTs <- {}
+        }
 
         // withdraw removes an NFT from the collection and moves it to the caller
-		pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
-			//remove the WNFT from the ownedNFTs dictionary
+        pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
+            //remove the WNFT from the ownedNFTs dictionary
             let wnft <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
             emit Withdraw(id: wnft.uuid, from: self.owner?.address)
 
             return <- wnft
-		}
+        }
 
         // deposit takes a NFT and adds it to the collections dictionary
-		// and adds the ID to the id array
-		pub fun deposit(token: @NonFungibleToken.NFT) {
-			let token <- token as! @Basket.NFT
+        // and adds the ID to the id array
+        pub fun deposit(token: @NonFungibleToken.NFT) {
+            let token <- token as! @Basket.NFT
             
             let id: UInt64 = token.id
             //need to create the WNFT
@@ -144,20 +144,20 @@ pub contract Basket: NonFungibleToken {
             emit Deposit(id: id, to: self.owner?.address)
 
             destroy oldToken
-		}
+        }
 
-		// getIDs returns an array of the IDs that are in the collection
-		pub fun getIDs(): [UInt64] {
-			return self.ownedNFTs.keys
-		}
+        // getIDs returns an array of the IDs that are in the collection
+        pub fun getIDs(): [UInt64] {
+            return self.ownedNFTs.keys
+        }
 
         // Returns a borrowed reference to an NFT in the collection
         // so that the caller can read data and call methods from it
         // borrowNFT gets a reference to an NFT in the collection
-		// so that the caller can read its metadata and call its methods
-		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
-		}
+        // so that the caller can read its metadata and call its methods
+        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
+            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+        }
 
         // borrowWNFT gets a reference to a WNFT in the collection
         // so that the caller can read its metadata and call its methods, etc
@@ -174,20 +174,20 @@ pub contract Basket: NonFungibleToken {
 
 
         destroy() {
-			destroy self.ownedNFTs
-		}
+            destroy self.ownedNFTs
+        }
 
     }
 
     // public function that anyone can call to create a new empty collection
-	pub fun createEmptyCollection(): @NonFungibleToken.Collection {
-		return <- create Collection()
-	} 
+    pub fun createEmptyCollection(): @NonFungibleToken.Collection {
+        return <- create Collection()
+    } 
 
     init() {
         self.totalSupply = 0
         self.CollectionPublicPath =  /public/basketCollection
-		self.CollectionStoragePath = /storage/basketCollection
+        self.CollectionStoragePath = /storage/basketCollection
 
         emit CollectionIntialized()
     }
