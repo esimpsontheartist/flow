@@ -13,8 +13,10 @@ pub contract CoreVault {
     
     pub event ContractInitialized()
 
-    priv var vaultCount: UInt256
+    //number of vaults that have been minted
+    pub var vaultCount: UInt256
 
+    //  Event emmited when a Core Vault is minted
     pub event VaultMinted(
         id: UInt64, 
         curator: Address,
@@ -24,7 +26,9 @@ pub contract CoreVault {
         description: String?
     );
 
+    // Storage path to a Core Vault collection
     pub let CollectionStoragePath: StoragePath
+    // Public path to a Core Vault collection
     pub let CollectionPublicPath: PublicPath
 
     //Interfaces that make a "Complete" Vault
@@ -81,6 +85,7 @@ pub contract CoreVault {
         }
     }
 
+    // Interface meant to be used to restrict access to a Core Vault reference
     pub resource interface PublicVault {
         pub let curator: Capability<&{Fraction.BulkCollectionPublic}>
         pub let underlyingType: Type
@@ -90,6 +95,7 @@ pub contract CoreVault {
         access(account) fun ref(id: UInt64): auth &NonFungibleToken.NFT
     }
 
+    // Vault implementation
     pub resource Vault: PublicVault, NFTVault, Minter, Referencer, Ender {
         
         //Capability of the curator/creator of this vault
@@ -136,7 +142,7 @@ pub contract CoreVault {
         }
 
         /**
-        * The ref() function in Flow doesn't remove the NFT from the collectio/vault
+        * The ref() function in Flow doesn't remove the NFT from the collection/vault
         * instead it provides an auth reference to a given NFT, which can be freely
         * upcasted to its original type, and thus can be used in other contracts/modules
         * for "renting" purposes. The only case in which a full reference is not a good
@@ -157,6 +163,7 @@ pub contract CoreVault {
             return <- collection
         }
 
+        // A function to borrow a restricted reference to the collection the vault stores
         pub fun borrowPublicCollection(): &{NonFungibleToken.CollectionPublic} {
             return &self.underlying as &{NonFungibleToken.CollectionPublic}
         }
@@ -169,6 +176,7 @@ pub contract CoreVault {
         }
     }
 
+    // A public function used to mint a CoreVault
     pub fun mintVault(
         curator: Capability<&{Fraction.BulkCollectionPublic}>,
         underlying: @NonFungibleToken.Collection,
@@ -205,8 +213,9 @@ pub contract CoreVault {
         pub fun borrowVault(id: UInt64): &{PublicVault}?
     }
 
-    //Resource events
+    //  Event emmited when a vault is deposited
     pub event VaultDeposited(id: UInt64, to: Address?)
+    // Event emmited when a vault is withdrawn
     pub event VaultWithdrawn(id: UInt64, from: Address?)
 
     //A collection to be held by Modules and other contracts in this account
@@ -219,6 +228,7 @@ pub contract CoreVault {
             self.vaults <- {}
         }
 
+        // Withdraw a CoreVault from the collection 
         pub fun withdraw(withdrawID: UInt64): @CoreVault.Vault {
             let vault <- self.vaults.remove(key: withdrawID) ?? panic("withdraw:missing vault")
             emit VaultWithdrawn(id: vault.uuid, from: self.owner?.address)
@@ -243,6 +253,7 @@ pub contract CoreVault {
 			return self.vaults.keys
 		}
 
+        // Borrow a restricted reference to one of the vaults in the collection
         pub fun borrowVault(id: UInt64): &{PublicVault}? {
             if self.vaults[id] != nil {
 				return &self.vaults[id] as &{PublicVault}
@@ -256,10 +267,12 @@ pub contract CoreVault {
         }
     }
 
+    // Create a Vault Collection to store Core Vaults
     pub fun createEmptyCollection(): @VaultCollection {
         return <- create VaultCollection()
     }
 
+    // get a count of all core vault that have been minted
     pub fun getVaultCount(): UInt256 {
         return self.vaultCount
     }

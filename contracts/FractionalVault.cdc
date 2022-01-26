@@ -16,21 +16,38 @@ pub contract FractionalVault {
     /// ----------- Factory ---------------
     /// -----------------------------------
 
+    //  Storage path for the FractionalVault collection
     pub let VaultStoragePath: StoragePath
+    //  Pubnlic path for the FractionalVault collection
 	pub let VaultPublicPath: PublicPath
+    //  Private path for the FractionalVault collection
+    //  Which restricts the capability to {Modules.CappedMinterCollection}
     pub let MinterPrivatePath: PrivatePath
+    //  Storage path for the Admin resource
     pub let AdministratorStoragePath: StoragePath
 
+    // Event emmited when the contract is initialized
     pub event ContractInitialized()
 
+    // private variable
     priv var fee: UFix64?
 
+    // return the fee set for the vault
     pub fun vaultFee(): UFix64? {
         return self.fee
     }
+
     //Vault settings Events
     pub event ManageFees(fee: UFix64?)
 
+    /**
+    * An administrator resource for the contract deployer to:
+    * - manageFees: set a UFix64 number that represents a fee(i.e 0.025 for 2.5%)
+    *   to be taken from the final price of an auction
+    * - overrideVaultPath: a function to be used by the admin to change the PublicPath
+    *   associated with the bidVault token in case the wrong path is provided
+    *   either maliciously or not.
+    */
     pub resource Administrator {
         pub fun manageFees(fee: UFix64) {
             FractionalVault.fee = fee
@@ -85,12 +102,14 @@ pub contract FractionalVault {
         }
     }
 
-    // Auction mappings
+    // vaultId -> Prices
     priv let prices: {UInt64: EnumerableSet.UFix64Set}
+    // vaultId -> Price -> number of Fractions voting for this price
     priv let priceToCount: {UInt64: {UFix64: UInt256}}
+    // vaultId -> Address -> Price
     priv let userPrices: {UInt64: {Address: UFix64}}
 
-    // Reserve Price Functions
+    // Add a price to the mappings
     access(account) fun addToPrice(_ vaultId: UInt64, _ amount: UInt256, _ price: UFix64?) {
         if price == nil {
             return
@@ -116,6 +135,7 @@ pub contract FractionalVault {
         }
     }   
 
+    // Remove a price from the mappings
     access(account) fun removeFromPrice(_ vaultId: UInt64, _ amount: UInt256, _ price: UFix64?) {
         if price == nil {
             return
@@ -141,6 +161,7 @@ pub contract FractionalVault {
         }
     }
 
+    // Return the ReserveInfo for a given vaultId
     pub fun reservePrice(_ vaultId: UInt64): ReserveInfo {
 
         var tempPrices: [UFix64]? = self.prices[vaultId]?.values()
@@ -173,8 +194,10 @@ pub contract FractionalVault {
         return ReserveInfo(voting, reserve)
     }
 
+    // A struct used as a Fraction.Hook to trigger functions
+    // on the Fraction.cdc contract when certain events happen (deposit, withdrawal, etc)
     pub struct VaultHook: Fraction.Hook {
-        //Used for deposits/withdrawals
+        //Trigger some logic before a transfer
         access(account) fun beforeTransfer(
             from: Address?, 
             to: Address?, 
@@ -198,6 +221,7 @@ pub contract FractionalVault {
             }
         }
 
+        // Trigger some logic when the fractions get burnt
         access(account) fun onBurn(
             from: Address?,
 			amount: UInt256, 
@@ -211,30 +235,46 @@ pub contract FractionalVault {
         }
     }
     
+    // Public facing interface for a FractionalVault
     pub resource interface PublicVault {
+        // Length of the auction
         pub let auctionLength: UFix64
+        // end time for the auction
         pub fun getAuctionEnd(): UFix64
+        // current highest bid
         pub fun getLivePrice(): UFix64 
+        // capability that is currently winning the auction
         pub fun getWinning(): Capability<&{NonFungibleToken.CollectionPublic}>?
+        // state of the auction
         pub fun getAuctionState(): State
+        // updates the price a user is voting for
         pub fun updateUserPrice(collection: &Fraction.BulkCollection, new: UFix64)
+        // borrow a restricted reference to the underlying collection
         pub fun borrowUnderlying(): &{NonFungibleToken.CollectionPublic}
+        // return the bidVault balance of the vault
         pub fun vaultBalance(): &{FungibleToken.Balance}
+        // start an auction
         pub fun start(
             ftVault: @FungibleToken.Vault, 
             refund: Capability<&{FungibleToken.Receiver}>,
             bidder: Capability<&{NonFungibleToken.CollectionPublic}>
         )
+        // place a bid during an auction
         pub fun bid(
             ftVault: @FungibleToken.Vault, 
             refund: Capability<&{FungibleToken.Receiver}>,
             bidder: Capability<&{NonFungibleToken.CollectionPublic}>
         )
+        // end the auction
         pub fun end()
+        // redeem the underliny collection if the user owns the entire supply
         pub fun redeem(collection: &Fraction.BulkCollection, redeemer: Capability<&{NonFungibleToken.CollectionPublic}>)
+        // cash a fraction for a pro rata portion of the final sale price (or winning bid)
         pub fun cash(collection: &Fraction.BulkCollection, collector: Capability<&{FungibleToken.Receiver}>)
+        // account restricted function for other contracts to have an NFT reference that can be upcated
+        // mainly useful for metadata extraction
         access(account) fun borrowUnderlyingRef(id: UInt64): auth &NonFungibleToken.NFT
-        //Function to override the path in case a wrong one is provided
+        // account restrctied function to override the path in case a wrong one is provided
         access(contract) fun overrrideBidVaultPath(path: PublicPath)
     }
 
@@ -352,6 +392,7 @@ pub contract FractionalVault {
             return &self.bidVault as &{FungibleToken.Balance}
         }
 
+        //send a fungible token to an addres `to`
         access(self) fun sendFungibleToken(to: Capability<&{FungibleToken.Receiver}>, value: UFix64) {
             //borrow a capability for the vault of the 'to' address
             let toVault = to.borrow() ?? panic("Could not borrow a reference to the account receiver")
@@ -415,6 +456,7 @@ pub contract FractionalVault {
             emit Start(buyer: self.winning!.address, price: self.livePrice!, auctionEnd: self.auctionEnd! ) 
         }
 
+        // places a bid during an auction
         pub fun bid(
             ftVault: @FungibleToken.Vault, 
             refund: Capability<&{FungibleToken.Receiver}>,
@@ -454,13 +496,15 @@ pub contract FractionalVault {
             emit Bid(buyer: self.winning!.address, price: self.livePrice!, auctionEnd: self.auctionEnd!)
         }
 
+        // ends the auction and transfer it to the `winner`
+        // if on, will also take a fee and sent it to the account that deployed this contract
         pub fun end() {
             pre {
                 self.auctionState == State.live : "end:vault has already closed"
                 getCurrentBlock().timestamp >= self.auctionEnd! : "end:auction live"
             }
             
-            //get capabilit of the winners collection
+            //get capability of the winners collection
             let winnersCollection = self.winning!.borrow() ?? panic("Auction winner does not have a capability to receive the underlying")
 
             // transfer NFT to winner
@@ -520,6 +564,7 @@ pub contract FractionalVault {
             
         }
 
+        // function to cash in a set of fractions for the FungibleToken used for the vault
         pub fun cash(collection: &Fraction.BulkCollection, collector: Capability<&{FungibleToken.Receiver}>) {
             pre {
                 self.auctionState == State.ended : "cash:vault not closed yet"
@@ -530,8 +575,7 @@ pub contract FractionalVault {
             let collectorRef = collector.borrow() 
             ?? panic("cash:could not borrow a reference from the collector's fungible token capability")
             assert(collectorRef.isInstance(self.bidVaultType), message: "cash:collector's capability is not the requested type")
-            log("Collection Balance: ")
-            log(collection.borrowCollection(vaultId: self.vault.uuid)!.getIDs().length)
+
             let fractions <- collection.withdrawCollection(vaultId: self.vault.uuid)
             //calculate share of the total fraction supply for the vault (Need to check the math)
             var share = (UFix64(fractions.getIDs().length) * self.bidVault.balance) / UFix64(Fraction.fractionSupply[self.vault.uuid]!)
@@ -551,8 +595,10 @@ pub contract FractionalVault {
             emit Cash(owner: collector.address, amount: share, ids: ids)
         }
 
-        //Function access guess restricted by resource interfaces
-        //Only a full reference given by the owner can call this function
+        // Function access restricted by resource interfaces.
+        // Only a full reference given by the owner can call this function
+        // swaps the underlying coreVault with an empty one, and returns the
+        // underlying to the curator
         pub fun withdrawVault() {
             pre {
                 self.auctionState == FractionalVault.State.inactive : "withdrawVault:cannot withdraw from an active state"
@@ -578,6 +624,7 @@ pub contract FractionalVault {
             coreVaultCollection.depositVault(vault: <- vault)
         }
 
+        // Override the public path associated with FungibleToken.Receiver for this vault
         access(contract) fun overrrideBidVaultPath(path: PublicPath) {
             self.vaultPath = path
         }
@@ -593,6 +640,7 @@ pub contract FractionalVault {
 
     }
 
+    // Public facing interface for a collection of vaults
     pub resource interface VaultCollectionPublic {
         pub fun depositVault(vault: @FractionalVault.Vault)
 		pub fun getIDs(): [UInt64]
@@ -629,12 +677,14 @@ pub contract FractionalVault {
             destroy oldVault
         }
 
+        // withdraws a vault from the dictionary for a given id
         pub fun withdrawVault(id : UInt64): @FractionalVault.Vault {
             let vault <- self.vaults.remove(key: id) ?? panic("withdrawVault:no vault with given id")
             emit VaultWithdrawn(id: vault.uuid, from: self.owner?.address)
             return <- vault
         }
 
+        // gets all the ids in the collection
         pub fun getIDs(): [UInt64] {
             return self.vaults.keys
         }
@@ -650,6 +700,7 @@ pub contract FractionalVault {
             }
         }
         
+        // borrow a minter reference, which gives access to the `mint()` function of FractionalVaullt.Vault
         pub fun borrowMinter(id: UInt64): &{Modules.CappedMinter}? {
             if self.vaults[id] != nil {
                 let ref = &self.vaults[id] as &{Modules.CappedMinter}

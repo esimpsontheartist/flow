@@ -3,11 +3,17 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
 pub contract Fraction: NonFungibleToken {
 
+	// Storage Path for a Fraction.BulkCollection resource
 	pub let CollectionStoragePath: StoragePath
+	//	Public Path that returns a capability to a Fraction.BulkCollectionPublic
 	pub let CollectionPublicPath: PublicPath
+	//  Private Path that returns a capability to Fraction.BulkCollection
 	pub let CollectionPrivatePath: PrivatePath
+	// Storage Path for the Fraction.Administrator resource
 	pub let AdministratorStoragePath: StoragePath
+	// Storage Path for the Fraction.BurnerCollection resource
 	pub let BurnerStoragePath: StoragePath
+	//  Public Path that returns a capability to the Fraction.BurnerCollectio
 	pub let BurnerPublicPath: PublicPath
 
 
@@ -16,11 +22,14 @@ pub contract Fraction: NonFungibleToken {
 	// The API endpoint for Fraction metadata
 	access(account) var baseURI: String
 
+	// Resource stored in the account that deploys the contract
+	// meant to be used to change the uri (in case it needs to be changed for future mints)
 	pub resource Administrator {
 		pub fun setUriBase(_ uri: String) {
 			Fraction.baseURI = uri
 		}
 	}
+
 	//Total fraction supply for a given vault id
 	access(account) let fractionSupply: {UInt64: UInt256}
 
@@ -59,6 +68,7 @@ pub contract Fraction: NonFungibleToken {
 	//An event that indicates that a certain number of fractions have been destroyed 
 	pub event FractionsDestroyed(amount: Int)
 	
+	// Struct to represent important information about a fraction
 	pub struct FractionData {
 		pub let vaultId: UInt64
 		pub let uri: String
@@ -81,10 +91,14 @@ pub contract Fraction: NonFungibleToken {
         }
 	}
 
+	// Dictionary that maps a vaultId to the data of it's fractions
 	access(account) let vaultToFractionData: {UInt64: FractionData}
 
+	// Event emmited when fractions are minted
 	pub event MintFractions(ids: [UInt64], metadata: FractionData)
 
+	// A struct interface that allows implementors to define
+	// custom behavior for `beforeTransfer` and `onBurn` operations
 	pub struct interface Hook {
 		access(account) fun beforeTransfer(
 			from: Address?,
@@ -100,7 +114,7 @@ pub contract Fraction: NonFungibleToken {
 		)
 	}
 
-	//Transfer methods for fractions by vault
+	// Dictionary that maps vaultId => Hook
 	access(account) let hooks: {UInt64: {Hook}}
 
 	//The resource that represents the Fraction NFT
@@ -237,7 +251,7 @@ pub contract Fraction: NonFungibleToken {
 		pub fun borrowFraction(id: UInt64): &Fraction.NFT?
 	}
 
-	//Stored by users to manager their fractions
+	// A collection of Fraction.Collection, stored by users to manager their fractions
 	pub resource BulkCollection: NonFungibleToken.CollectionPublic, BulkCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver {
 
 		// a dictionary of Collections
@@ -245,13 +259,17 @@ pub contract Fraction: NonFungibleToken {
 
 		//from which collection should a fraction be withdrawn from
 		priv let fractionToVault: {UInt64: UInt64}
+		//Dictionary that maps a vaultId to an enumerable set in order to keep track of the number
+		// of fractions for a given vaultId in the collection
 		priv let vaultToFractions: {UInt64: EnumerableSet.UInt64Set}
+
 		init() {
 			self.ownedCollections <- {}
 			self.fractionToVault = {}
 			self.vaultToFractions = {}
 		}
 
+		// withdraw an NFT with id `withdrawId` and return the resource associated with the id
 		pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
 			//Find the collection from where a token should be withdrawn
 			let vaultId = self.fractionToVault[withdrawID] ?? panic("withdraw:no fractions stored for this vaultId")
@@ -265,6 +283,9 @@ pub contract Fraction: NonFungibleToken {
 			return <- token
 		}	
 
+		// Deposit a Fraction.NFT into the collection
+		// the function takes care of figuring out to which collection
+		// the fraction belongs to
 		pub fun deposit(token: @NonFungibleToken.NFT) {
 			let token <- token as! @Fraction.NFT
 			
@@ -284,6 +305,7 @@ pub contract Fraction: NonFungibleToken {
 			collectionRef.deposit(token: <- token)
 		}
 
+		// Return all the ids in the collection
 		pub fun getIDs(): [UInt64] {
 			let ids: [UInt64] = []
 			for collectionId in self.ownedCollections.keys {
@@ -291,16 +313,19 @@ pub contract Fraction: NonFungibleToken {
 			}
 			return ids
 		}
-
+		
+		//Gets all the vaultIds in the collection
 		pub fun getVaultIds(): [UInt64] {
 			return self.vaultToFractions.keys
 		}
 
+		// Gets the ids associated with a collection that stores frractions for a given vaultI
 		pub fun getIDsByVault(vaultId: UInt64): [UInt64] {
 			let vault = self.vaultToFractions[vaultId] ?? panic("no vault for given id")
 			return vault.values()
 		}
 
+		// get a reference to an NFT in the collection
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
 			//Find the collection from where a token should be withdrawn
 			let vaultId = self.fractionToVault[id] ?? panic("withdraw:no fractions stored for this vaultId")
@@ -309,6 +334,7 @@ pub contract Fraction: NonFungibleToken {
 			return self.ownedCollections[vaultId]?.borrowNFT(id: id)!
 		}	
 
+		// get a reference to a Fraction.NFT in the collection
 		pub fun borrowFraction(id: UInt64): &Fraction.NFT? {
 			//Find the collection from where a token should be withdrawn
 			let vaultId = self.fractionToVault[id] ?? panic("withdraw:no fractions stored for this vaultId")
@@ -317,6 +343,10 @@ pub contract Fraction: NonFungibleToken {
 			return self.ownedCollections[vaultId]?.borrowFraction(id: id)!
 		}
 
+		// get a reference to one of the collections in the Bulk collection
+		// NOTE: this method is hidden from restricted references
+		// as it is only meant to be used in transactions wich the owner 
+		// of the bulk collection has signed on
 		pub fun borrowCollection(vaultId: UInt64): &Fraction.Collection? {
 			if self.ownedCollections[vaultId] != nil {
 				let collectionRef = &self.ownedCollections[vaultId] as! &Fraction.Collection
@@ -327,6 +357,10 @@ pub contract Fraction: NonFungibleToken {
 			
 		}
 
+		// withdraw a collection for a given vaultId from the BulkCollection
+		// NOTE: this method is hidden from restricted references
+		// as it is only meant to be used in transactions wich the owner 
+		// of the bulk collection has signed on
 		pub fun withdrawCollection(vaultId: UInt64): @Collection {
 			let collection <- self.ownedCollections.remove(key: vaultId) ?? panic("missing collection")
 			Fraction.hooks[vaultId]?.beforeTransfer(
@@ -344,6 +378,13 @@ pub contract Fraction: NonFungibleToken {
 		}
 	}
 
+	// A collection stored by the contract deployer
+	// It's only utility is to facilitate other contract operations
+	// that require a large number of fractions to be transferred 
+	// by acting as a temporary holder of fractions (this way the user doesn't
+	// have to call multiple transactions to burn their fractions, making for a better UX).
+	// This resource only lets you know how many collections it stores, and the amount at
+	// a given index, so it leaks no information about the underlying 
 	pub resource BurnerCollection {
 		priv let collections: @[Fraction.Collection]
 
@@ -372,7 +413,7 @@ pub contract Fraction: NonFungibleToken {
 				self.collections.length > 0 : "burnFractions:no fractions to burn"
 			}
 			
-			//keep track of the number o fractions that have been burned
+			//keep track of the number of fractions that have been burned
 			var i = 0
 			while true {
 				let ids = self.collections[0].getIDs()
@@ -411,15 +452,21 @@ pub contract Fraction: NonFungibleToken {
 	}
 
     // public function that anyone can call to create a new empty collection
+	// NOTE: this collection is defined in order for Fractions to follow the NFT 
+	// standard. For general uses and interaction with the Fractional Protocol
+	// use createBulkCollection()
 	pub fun createEmptyCollection(): @NonFungibleToken.Collection {
 		return <- create Collection()
 	}
 	
+	// public function that anyone can call to create a new empty bulk collection
 	pub fun createBulkCollection(): @BulkCollection {
 		return <- create BulkCollection()
 	}
 
 	// function to mint a group of fractions corresponding to a vault
+	// can only be called by contracts in the account that deployed 
+	// this contract
 	access(account) fun mintFractions(
 		amount: UInt256, 
 		vaultId: UInt64
