@@ -3,35 +3,35 @@ import EnumerableSet from "./EnumerableSet.cdc"
 
 pub contract Fraction: NonFungibleToken {
 
-	// Storage Path for a Fraction.BulkCollection resource
-	pub let CollectionStoragePath: StoragePath
-	//	Public Path that returns a capability to a Fraction.BulkCollectionPublic
-	pub let CollectionPublicPath: PublicPath
-	//  Private Path that returns a capability to Fraction.BulkCollection
-	pub let CollectionPrivatePath: PrivatePath
-	// Storage Path for the Fraction.Administrator resource
-	pub let AdministratorStoragePath: StoragePath
-	// Storage Path for the Fraction.BurnerCollection resource
-	pub let BurnerStoragePath: StoragePath
-	//  Public Path that returns a capability to the Fraction.BurnerCollectio
-	pub let BurnerPublicPath: PublicPath
+    // Storage Path for a Fraction.BulkCollection resource
+    pub let CollectionStoragePath: StoragePath
+    //	Public Path that returns a capability to a Fraction.BulkCollectionPublic
+    pub let CollectionPublicPath: PublicPath
+    //  Private Path that returns a capability to Fraction.BulkCollection
+    pub let CollectionPrivatePath: PrivatePath
+    // Storage Path for the Fraction.Administrator resource
+    pub let AdministratorStoragePath: StoragePath
+    // Storage Path for the Fraction.BurnerCollection resource
+    pub let BurnerStoragePath: StoragePath
+    //  Public Path that returns a capability to the Fraction.BurnerCollectio
+    pub let BurnerPublicPath: PublicPath
 
 
     // The total number of tokens of this type in existence
     pub var totalSupply: UInt64
-	// The API endpoint for Fraction metadata
-	access(account) var baseURI: String
-
-	// Resource stored in the account that deploys the contract
-	// meant to be used to change the uri (in case it needs to be changed for future mints)
-	pub resource Administrator {
-		pub fun setUriBase(_ uri: String) {
-			Fraction.baseURI = uri
-		}
+    // The API endpoint for Fraction metadata
+    access(account) var baseURI: String
+    
+    // Resource stored in the account that deploys the contract
+    // meant to be used to change the uri (in case it needs to be changed for future mints)
+    pub resource Administrator {
+    	pub fun setUriBase(_ uri: String) {
+	    Fraction.baseURI = uri
 	}
+    }
 
-	//Total fraction supply for a given vault id
-	access(account) let fractionSupply: {UInt64: UInt256}
+    //Total fraction supply for a given vault id
+    access(account) let fractionSupply: {UInt64: UInt256}
 
     // Event that emitted when the NFT contract is initialized
     pub event ContractInitialized()
@@ -43,20 +43,20 @@ pub contract Fraction: NonFungibleToken {
     //
     pub event Withdraw(id: UInt64, from: Address?)
 
-	// Event that is emitted when a collection is withdrawn from the FractionCollection,
+    // Event that is emitted when a collection is withdrawn from the FractionCollection,
     // indicating the owner of the collection that it was withdrawn from.
     //
     // If the collection is not in an account's storage, `from` will be `nil`.
     //
     pub event WithdrawCollection(id: UInt64, from: Address?)
 
-    // Event that emitted when a token is deposited to a collection.
-    //
-    // It indicates the owner of the collection that it was deposited to.
-    //
+    /**
+    * Event that emitted when a token is deposited to a collection.
+    * It indicates the owner of the collection that it was deposited to.
+    */
     pub event Deposit(id: UInt64, to: Address?)
 
-	// Event thats emitted when a collection is deposited to a fraction collection.
+    // Event thats emitted when a collection is deposited to a fraction collection.
     //
     // It indicates the owner of the collection that it was deposited to.
     //
