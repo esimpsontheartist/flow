@@ -134,7 +134,7 @@ pub contract FixedPriceSale {
         pub fun borrowListing(id: UInt64): &{SalePublic}?
     }
 
-    pub resource FixedSaleCollection:  FixedSaleCollectionPublic {
+    pub resource FixedSaleCollection: FixedSaleCollectionPublic {
 
         pub var forSale: @{UInt64: Sale}
 
