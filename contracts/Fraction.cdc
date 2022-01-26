@@ -537,6 +537,6 @@ pub contract Fraction: NonFungibleToken {
         self.account.link<&{Fraction.BulkCollectionPublic}>(self.CollectionPublicPath, target: self.CollectionStoragePath)
         self.account.link<&Fraction.BulkCollection>(self.CollectionPrivatePath, target: self.CollectionStoragePath)
 
-        emit ContractInitialized()    
+        emit ContractInitialized()
     }
 }
